@@ -12,9 +12,9 @@ Below we list relevant links.
 
 Replicate:
 - https://replicate.com/collections/flux
-- https://replicate.com/collections/flux-pro
-- https://replicate.com/collections/flux-dev
-- https://replicate.com/collections/flux-schnell
+- https://replicate.com/black-forest-labs/flux-pro
+- https://replicate.com/black-forest-labs/flux-dev
+- https://replicate.com/black-forest-labs/flux-schnell
 
 FAL:
 - https://fal.ai/models/fal-ai/flux-pro
