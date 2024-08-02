@@ -15,10 +15,17 @@ from transformers import pipeline
 
 from flux.cli import SamplingOptions
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import (configs, embed_watermark, load_ae, load_clip,
-                       load_flow_model, load_t5)
+from flux.util import (
+    configs,
+    embed_watermark,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+)
 
 NSFW_THRESHOLD = 0.85
+
 
 @st.cache_resource()
 def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool):
@@ -187,7 +194,7 @@ def main(
         # divide pixel space by 16**2 to acocunt for latent space conversion
         timesteps = get_schedule(
             opts.num_steps,
-            x.shape[-1] * x.shape[-2] // (16 * 16),
+            (x.shape[-1] * x.shape[-2]) // 4,
             shift=(not is_schnell),
         )
         if init_image is not None:
