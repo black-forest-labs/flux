@@ -28,7 +28,7 @@ FAL:
 cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
 python3.10 -m venv .venv
-source .venv/bin/activate
+source .venv/activate
 pip install -e '.[all]'
 ```
 
@@ -69,10 +69,29 @@ python -m flux --name <name> \
   --prompt "<prompt>"
 ```
 
-We also provice a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
+We also provide a Streamlit demo that does both text-to-image and image-to-image. The demo can be run via
 ```bash
 streamlit run demo_st.py
 ```
+
+We also offer a Gradio-based demo for an interactive experience. To run the Gradio demo:
+```bash
+python demo_gr.py --model flux-schnell --device cuda
+```
+
+Options:
+- `--model`: Choose the model to use (options: "flux-schnell", "flux-dev")
+- `--device`: Specify the device to use (default: "cuda" if available, otherwise "cpu")
+- `--offload`: Offload model to CPU when not in use
+- `--share`: Create a public link to your demo
+
+To run the demo with the dev model and create a public link:
+
+```bash
+python -m demo_gr.py --model flux-dev --share
+```
+
+A live Gradio demo is also available on [Hugging Face](https://huggingface.co/black-forest-labs) based on 🧨 diffusers
 
 ## API usage
 
