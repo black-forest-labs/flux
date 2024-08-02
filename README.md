@@ -69,7 +69,7 @@ python -m flux --name <name> \
   --prompt "<prompt>"
 ```
 
-We also provice a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
+We also provide a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
 ```bash
 streamlit run demo_st.py
 ```
