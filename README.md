@@ -91,7 +91,7 @@ To run the demo with the dev model and create a public link:
 python -m demo_gr.py --model flux-dev --share
 ```
 
-A live Gradio demo is also available on [Hugging Face](https://huggingface.co/black-forest-labs) based on 🧨 diffusers
+A live Gradio demo is also available on [Hugging Face Spaces](https://huggingface.co/black-forest-labs) based on 🧨 diffusers
 
 ## API usage
 
