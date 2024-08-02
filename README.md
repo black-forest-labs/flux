@@ -28,7 +28,7 @@ FAL:
 cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
 python3.10 -m venv .venv
-source .venv/activate
+source .venv/bin/activate
 pip install -e '.[all]'
 ```
 
@@ -69,7 +69,7 @@ python -m flux --name <name> \
   --prompt "<prompt>"
 ```
 
-We also provide a Streamlit demo that does both text-to-image and image-to-image. The demo can be run via
+We also provide a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
 ```bash
 streamlit run demo_st.py
 ```
