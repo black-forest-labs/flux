@@ -89,7 +89,7 @@ class FluxGenerator:
         )
         timesteps = get_schedule(
             opts.num_steps,
-            x.shape[-1] * x.shape[-2] // (16 * 16),
+            x.shape[-1] * x.shape[-2] // 4,
             shift=(not self.is_schnell),
         )
         if init_image is not None:
