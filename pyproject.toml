@@ -28,8 +28,12 @@ streamlit = [
   "streamlit",
   "streamlit-keyup",
 ]
+gradio = [
+  "gradio",
+]
 all = [
   "flux[streamlit]",
+  "flux[gradio]",
 ]
 
 [project.scripts]
