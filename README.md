@@ -76,11 +76,11 @@ streamlit run demo_st.py
 
 We also offer a Gradio-based demo for an interactive experience. To run the Gradio demo:
 ```bash
-python demo_gr.py --model flux-schnell --device cuda
+python demo_gr.py --name flux-schnell --device cuda
 ```
 
 Options:
-- `--model`: Choose the model to use (options: "flux-schnell", "flux-dev")
+- `--name`: Choose the model to use (options: "flux-schnell", "flux-dev")
 - `--device`: Specify the device to use (default: "cuda" if available, otherwise "cpu")
 - `--offload`: Offload model to CPU when not in use
 - `--share`: Create a public link to your demo
@@ -88,10 +88,8 @@ Options:
 To run the demo with the dev model and create a public link:
 
 ```bash
-python -m demo_gr.py --model flux-dev --share
+python -m demo_gr.py --name flux-dev --share
 ```
-
-A live Gradio demo is also available on [Hugging Face Spaces](https://huggingface.co/black-forest-labs) based on [🧨 diffusers](https://github.com/huggingface/diffusers)
 
 ## Diffusers integration
 
