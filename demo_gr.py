@@ -1,6 +1,7 @@
 import os
 import time
 from io import BytesIO
+import uuid
 
 import torch
 import gradio as gr
@@ -138,22 +139,22 @@ class FluxGenerator:
         nsfw_score = [x["score"] for x in self.nsfw_classifier(img) if x["label"] == "nsfw"][0]
 
         if nsfw_score < NSFW_THRESHOLD:
-            buffer = BytesIO()
+            filename = f"{uuid.uuid4()}.png"
             exif_data = Image.Exif()
             if init_image is None:
                 exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
             else:
                 exif_data[ExifTags.Base.Software] = "AI generated;img2img;flux"
             exif_data[ExifTags.Base.Make] = "Black Forest Labs"
-            exif_data[ExifTags.Base.Model] = self.model.__class__.__name__
+            exif_data[ExifTags.Base.Model] = self.model_name
             if add_sampling_metadata:
                 exif_data[ExifTags.Base.ImageDescription] = prompt
-            img.save(buffer, format="jpeg", exif=exif_data, quality=95, subsampling=0)
+            
+            img.save(filename, format="png", quality=100)
 
-            img_bytes = buffer.getvalue()
-            return img, opts.seed, None
+            return img, opts.seed, filename, None
         else:
-            return None, opts.seed, "Your generated image may contain NSFW content."
+            return None, opts.seed, None, "Your generated image may contain NSFW content."
 
 def create_demo(model_name: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", offload: bool = False):
     generator = FluxGenerator(model_name, device, offload)
@@ -182,6 +183,7 @@ def create_demo(model_name: str, device: str = "cuda" if torch.cuda.is_available
                 output_image = gr.Image(label="Generated Image")
                 seed_output = gr.Number(label="Used Seed")
                 warning_text = gr.Textbox(label="Warning", visible=False)
+                download_btn = gr.File(label="Download full-resolution")
 
         def update_img2img(do_img2img):
             return {
@@ -194,7 +196,7 @@ def create_demo(model_name: str, device: str = "cuda" if torch.cuda.is_available
         generate_btn.click(
             fn=generator.generate_image,
             inputs=[width, height, num_steps, guidance, seed, prompt, init_image, image2image_strength, add_sampling_metadata],
-            outputs=[output_image, seed_output, warning_text],
+            outputs=[output_image, seed_output, download_btn, warning_text],
         )
 
     return demo
@@ -202,11 +204,11 @@ def create_demo(model_name: str, device: str = "cuda" if torch.cuda.is_available
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Flux")
-    parser.add_argument("--model", type=str, default="flux-schnell", choices=list(configs.keys()), help="Model name")
+    parser.add_argument("--name", type=str, default="flux-schnell", choices=list(configs.keys()), help="Model name")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use")
     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
     args = parser.parse_args()
 
-    demo = create_demo(args.model, args.device, args.offload)
+    demo = create_demo(args.name, args.device, args.offload)
     demo.launch(share=args.share)
