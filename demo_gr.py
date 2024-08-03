@@ -141,7 +141,7 @@ class FluxGenerator:
         nsfw_score = [x["score"] for x in self.nsfw_classifier(img) if x["label"] == "nsfw"][0]
 
         if nsfw_score < NSFW_THRESHOLD:
-            filename = f"{uuid.uuid4()}.png"
+            filename = f"{uuid.uuid4()}.jpg"
             exif_data = Image.Exif()
             if init_image is None:
                 exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
@@ -152,7 +152,7 @@ class FluxGenerator:
             if add_sampling_metadata:
                 exif_data[ExifTags.Base.ImageDescription] = prompt
             
-            img.save(filename, format="png", quality=100)
+            img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
 
             return img, str(opts.seed), filename, None
         else:
