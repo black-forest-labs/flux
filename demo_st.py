@@ -167,7 +167,6 @@ def main(
         t0 = time.perf_counter()
 
         if init_image is not None:
-            init_image = init_image.to(torch_device)
             if resize_img:
                 init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
             else:
@@ -177,7 +176,7 @@ def main(
                 opts.width = init_image.shape[-1]
             if offload:
                 ae.encoder.to(torch_device)
-            init_image = ae.encode(init_image.to())
+            init_image = ae.encode(init_image.to(torch_device))
             if offload:
                 ae = ae.cpu()
                 torch.cuda.empty_cache()
