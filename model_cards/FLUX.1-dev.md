@@ -18,7 +18,7 @@ Developers and creatives looking to build on top of `FLUX.1 [dev]` are encourage
 The FLUX.1 models are also available via API from the following sources
 1. [bfl.ml](https://docs.bfl.ml/) (currently `FLUX.1 [pro]`)
 2. [replicate.com](https://replicate.com/collections/flux)
-3. [fal.ai](https://fal.ai/models/fal-ai/flux)
+3. [fal.ai](https://fal.ai/models/fal-ai/flux/dev)
 
 ## ComfyUI
 `FLUX.1 [dev]` is also available in [Comfy UI](https://github.com/comfyanonymous/ComfyUI) for local inference with a node-based workflow.
