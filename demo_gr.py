@@ -141,7 +141,8 @@ class FluxGenerator:
         nsfw_score = [x["score"] for x in self.nsfw_classifier(img) if x["label"] == "nsfw"][0]
 
         if nsfw_score < NSFW_THRESHOLD:
-            filename = f"{uuid.uuid4()}.jpg"
+            filename = f"output/gradio/{uuid.uuid4()}.jpg"
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
             exif_data = Image.Exif()
             if init_image is None:
                 exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
