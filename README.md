@@ -88,7 +88,7 @@ Options:
 To run the demo with the dev model and create a public link:
 
 ```bash
-python -m demo_gr.py --name flux-dev --share
+python demo_gr.py --name flux-dev --share
 ```
 
 ## Diffusers integration
