@@ -5,7 +5,7 @@ For more information, please read our [blog post](https://blackforestlabs.ai/ann
 
 # Key Features
 1. Cutting-edge output quality, second only to our state-of-the-art model `FLUX.1 [pro]`.
-2. Competitive prompt following, matching the performance of closed source alternatives .
+2. Competitive prompt following, matching the performance of closed source alternatives.
 3. Trained using guidance distillation, making `FLUX.1 [dev]` more efficient.
 4. Open weights to drive new scientific research, and empower artists to develop innovative workflows.
 5. Generated outputs can be used for personal, scientific, and commercial purposes, as described in the [flux-1-dev-non-commercial-license](./licence.md).

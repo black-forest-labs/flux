@@ -190,7 +190,7 @@ def main(
             dtype=torch.bfloat16,
             seed=opts.seed,
         )
-        # divide pixel space by 16**2 to acocunt for latent space conversion
+        # divide pixel space by 16**2 to account for latent space conversion
         timesteps = get_schedule(
             opts.num_steps,
             (x.shape[-1] * x.shape[-2]) // 4,
