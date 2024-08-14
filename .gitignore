@@ -1,3 +1,130 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
 .venv
-flux.egg-info/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.spyderproject
+.spyproject
+
+# PyCharm
+.idea/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Cython
+*.c
+*.cpp
+*.h
+*.hpp
+*.pyx
+*.pxd
+*.pxi
+*.pyd
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# vscode
+.vscode/
+
+# Local SQLite databases
+*.sqlite3
+
+# Flask/Django stuff:
+instance/
+.webassets-cache
+*.log
+
+# Logs and databases
+*.sql
+*.sqlite
+
+# Sphinx documentation
+docs/_build/
+
+# Coverage reports
+.pytest_cache/
+
+# pytest
+# PyCharm files
+# Anaconda environments
+*.conda
+*.ipynb_checkpoints
+
+# Backup files
+*.bak
+*.swp
+*.swo
+
+# Other ignore patterns
+*.pem
+*.key
+.secret
+.secret.json
+
+# project specific
 src/flux/_version.py
