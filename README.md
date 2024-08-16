@@ -1,5 +1,4 @@
 # FLUX
-
 by Black Forest Labs: https://blackforestlabs.ai
 
 ![grid](assets/grid.jpg)
