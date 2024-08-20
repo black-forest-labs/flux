@@ -1,0 +1,76 @@
+$ python -m flux.api --prompt="A beautiful beach" url
+https:<...>/sample.jpg
+
+# generate and save the result
+$ python -m flux.api --prompt="A beautiful beach" save outputs/api
+
+# open the image directly
+$ python -m flux.api --prompt="A beautiful beach" image showflux.apirequest.urlfrom flux.api import ImageRequest
+
+# this will create an api request directly but not block until the generation is finished
+request = ImageRequest("A beautiful beach")
+# or: request = ImageRequest("A beautiful beach", api_key="your_key_here")
+
+# any of the following will block until the generation is finished
+request.url
+# -> https:<...>/sample.jpg
+request.bytes
+# -> b"..." bytes for the generated image
+request.save("outputs/api.jpg")
+# saves the sample to local storage
+request.image
+# -> a PIL imagerequest.bytesrequest.imageimport torch
+from diffusers import FluxPipeline
+
+model_id = "black-forest-labs/FLUX.1-schnell" #you can also use `black-forest-labs/FLUX.1-dev`
+
+pipe = FluxPipeline.from_pretrained("black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16)
+pipe.enable_model_cpu_offload() #save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
+
+prompt = "A cat holding a sign that says hello world"
+seed = 42
+image = pipe(
+    prompt,
+    output_type="pil",
+    num_inference_steps=4, #use a larger number if you are using [dev]
+    generator=torch.Generator("cpu").manual_seed(seed)
+).images[0]
+image.save("flux-schnell.png")42https://github.com/huggingface/diffusers.gitpython demo_gr.py --name flux-dev --sharedemo_gr.py# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python application
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pytest
