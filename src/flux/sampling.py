@@ -31,36 +31,48 @@ def get_noise(
 
 def prepare(t5: HFEmbedder, clip: HFEmbedder, img: Tensor, prompt: str | list[str]) -> dict[str, Tensor]:
     bs, c, h, w = img.shape
-    if bs == 1 and not isinstance(prompt, str):
-        bs = len(prompt)
+    # If a single image is provided but multiple prompts are given, replicate the image to match the number of prompts
+    if isinstance(prompt, list) and len(prompt) != bs:
+        if bs == 1:
+            img = repeat(img, '1 ... -> p ...', p=len(prompt))
+            bs = len(prompt)  # Update batch size to match the number of prompts
+        else:
+            raise ValueError("Number of prompts does not match batch size of images")
 
+    # Rearrange the image for processing, ensuring it's appropriate for the operation
     img = rearrange(img, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
-    if img.shape[0] == 1 and bs > 1:
-        img = repeat(img, "1 ... -> bs ...", bs=bs)
 
-    img_ids = torch.zeros(h // 2, w // 2, 3)
-    img_ids[..., 1] = img_ids[..., 1] + torch.arange(h // 2)[:, None]
-    img_ids[..., 2] = img_ids[..., 2] + torch.arange(w // 2)[None, :]
-    img_ids = repeat(img_ids, "h w c -> b (h w) c", b=bs)
+    # Create image indices for positional encoding
+    img_ids = torch.zeros(bs, h // 2 * w // 2, 3, device=img.device, dtype=img.dtype)
+    img_ids[:, :, 1] = torch.arange(h // 2, device=img.device)[:, None].repeat(1, w // 2).view(-1)
+    img_ids[:, :, 2] = torch.arange(w // 2, device=img.device)[None, :].repeat(h // 2, 1).view(-1)
+    img_ids = repeat(img_ids, '1 n c -> b n c', b=bs)
 
+    # Process text prompts through the text embedder
     if isinstance(prompt, str):
-        prompt = [prompt]
+        prompt = [prompt] * bs
     txt = t5(prompt)
-    if txt.shape[0] == 1 and bs > 1:
-        txt = repeat(txt, "1 ... -> bs ...", bs=bs)
-    txt_ids = torch.zeros(bs, txt.shape[1], 3)
 
+    # If only one embedding is returned, repeat it for each batch
+    if txt.shape[0] == 1 and bs > 1:
+        txt = repeat(txt, '1 ... -> bs ...', bs=bs)
+
+    # Create text indices, which might be used for positional information
+    txt_ids = torch.zeros(bs, txt.shape[1], 3, device=img.device, dtype=img.dtype)
+
+    # Process prompts through the clip embedder to obtain vectors
     vec = clip(prompt)
     if vec.shape[0] == 1 and bs > 1:
-        vec = repeat(vec, "1 ... -> bs ...", bs=bs)
+        vec = repeat(vec, '1 ... -> bs ...', bs=bs)
 
     return {
         "img": img,
-        "img_ids": img_ids.to(img.device),
-        "txt": txt.to(img.device),
-        "txt_ids": txt_ids.to(img.device),
-        "vec": vec.to(img.device),
+        "img_ids": img_ids,
+        "txt": txt,
+        "txt_ids": txt_ids,
+        "vec": vec,
     }
+
 
 
 def time_shift(mu: float, sigma: float, t: Tensor):
