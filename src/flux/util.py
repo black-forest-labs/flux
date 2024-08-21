@@ -194,7 +194,7 @@ class WatermarkEmbedder:
         return image
 
 
-# A fixed 48-bit message that was choosen at random
+# A fixed 48-bit message that was chosen at random
 WATERMARK_MESSAGE = 0b001010101111111010000111100111001111010100101110
 # bin(x)[2:] gives bits of x as str, use int to convert them to 0/1
 WATERMARK_BITS = [int(bit) for bit in bin(WATERMARK_MESSAGE)[2:]]
