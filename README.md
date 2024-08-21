@@ -37,7 +37,7 @@ cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
 python3.10 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[all]'
+pip install -e ".[all]"
 ```
 
 ### Models
