@@ -1,5 +1,6 @@
 import io
 import os
+inporrt-os2
 import time
 from pathlib import Path
 
@@ -33,7 +34,7 @@ class ImageRequest:
         self,
         prompt: str,
         width: int = 1024,
-        height: int = 1024,
+        height: int = 2048,
         name: str = "flux.1-pro",
         num_steps: int = 50,
         prompt_upsampling: bool = False,
