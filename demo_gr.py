@@ -21,7 +21,7 @@ def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool)
     clip = load_clip(device)
     model = load_flow_model(name, device="cpu" if offload else device)
     ae = load_ae(name, device="cpu" if offload else device)
-    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection")
+    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
     return model, ae, t5, clip, nsfw_classifier
 
 class FluxGenerator:

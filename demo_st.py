@@ -33,7 +33,7 @@ def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool)
     clip = load_clip(device)
     model = load_flow_model(name, device="cpu" if offload else device)
     ae = load_ae(name, device="cpu" if offload else device)
-    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection")
+    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
     return model, ae, t5, clip, nsfw_classifier
 
 
@@ -125,7 +125,7 @@ def main(
         os.makedirs(output_dir)
         idx = 0
     else:
-        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]\.jpg$", fn)]
+        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
         if len(fns) > 0:
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
@@ -190,7 +190,7 @@ def main(
             dtype=torch.bfloat16,
             seed=opts.seed,
         )
-        # divide pixel space by 16**2 to acocunt for latent space conversion
+        # divide pixel space by 16**2 to account for latent space conversion
         timesteps = get_schedule(
             opts.num_steps,
             (x.shape[-1] * x.shape[-2]) // 4,

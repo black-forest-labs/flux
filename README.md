@@ -37,7 +37,7 @@ cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
 python3.10 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[all]'
+pip install -e ".[all]"
 ```
 
 ### Models
@@ -148,7 +148,7 @@ first need to register with the API on [api.bfl.ml](https://api.bfl.ml/), and
 create a new API key.
 
 To use the API key either run `export BFL_API_KEY=<your_key_here>` or provide
-it via the `api_key=<your_key_here>` parameter. Is is also expected that you
+it via the `api_key=<your_key_here>` parameter. It is also expected that you
 have installed the package as above.
 
 Usage from python:
