@@ -13,6 +13,7 @@ Below we list relevant links.
 Replicate:
 
 - https://replicate.com/collections/flux
+- https://replicate.com/collections/flux-fine-tunes
 - https://replicate.com/black-forest-labs/flux-pro
 - https://replicate.com/black-forest-labs/flux-dev
 - https://replicate.com/black-forest-labs/flux-schnell
