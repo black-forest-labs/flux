@@ -113,10 +113,9 @@ class ImageRequest:
             },
             json=self.request_json,
         )
+        response.raise_for_status()  # Automatically raises an HTTPError for bad responses
         result = response.json()
-        if response.status_code != 200:
-            raise ApiException(status_code=response.status_code, detail=result.get("detail"))
-        self.request_id = response.json()["id"]
+        self.request_id = result["id"]
 
     def retrieve(self) -> dict:
         """
@@ -135,6 +134,7 @@ class ImageRequest:
                     "id": self.request_id,
                 },
             )
+            response.raise_for_status()  # Automatically raises an HTTPError for bad responses
             result = response.json()
             if "status" not in result:
                 raise ApiException(status_code=response.status_code, detail=result.get("detail"))
@@ -153,10 +153,8 @@ class ImageRequest:
         """
         if self._image_bytes is None:
             response = requests.get(self.url)
-            if response.status_code == 200:
-                self._image_bytes = response.content
-            else:
-                raise ApiException(status_code=response.status_code)
+            response.raise_for_status()  # Automatically raises an HTTPError for bad responses
+            self._image_bytes = response.content
         return self._image_bytes
 
     @property
@@ -192,3 +190,4 @@ if __name__ == "__main__":
     from fire import Fire
 
     Fire(ImageRequest)
+
