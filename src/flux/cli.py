@@ -215,6 +215,9 @@ def main(
         x = unpack(x.float(), opts.height, opts.width)
         with torch.autocast(device_type=torch_device.type, dtype=torch.bfloat16):
             x = ae.decode(x)
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         t1 = time.perf_counter()
 
         fn = output_name.format(idx=idx)
