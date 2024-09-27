@@ -21,8 +21,15 @@ def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool)
     clip = load_clip(device)
     model = load_flow_model(name, device="cpu" if offload else device)
     ae = load_ae(name, device="cpu" if offload else device)
-    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
-    return model, ae, t5, clip, nsfw_classifier
+    nsfw_image_classifier = pipeline(
+        "image-classification", model="Falconsai/nsfw_image_detection", device=device
+    )
+    nsfw_text_classifier = pipeline(
+        "sentiment-analysis",
+        model="michellejieli/NSFW_text_classifier",
+        device=device,
+    )
+    return model, ae, t5, clip, nsfw_image_classifier, nsfw_text_classifier
 
 
 class FluxGenerator:
@@ -31,7 +38,14 @@ class FluxGenerator:
         self.offload = offload
         self.model_name = model_name
         self.is_schnell = model_name == "flux-schnell"
-        self.model, self.ae, self.t5, self.clip, self.nsfw_classifier = get_models(
+        (
+            self.model,
+            self.ae,
+            self.t5,
+            self.clip,
+            self.nsfw_image_classifier,
+            self.nsfw_text_classifier,
+        ) = get_models(
             model_name,
             device=self.device,
             offload=self.offload,
@@ -51,6 +65,20 @@ class FluxGenerator:
         image2image_strength=0.0,
         add_sampling_metadata=True,
     ):
+        nsfw_text = self.nsfw_text_classifier(prompt)[0]
+        if nsfw_text["label"].lower() == "nsfw":
+            nsfw_text_score = nsfw_text["score"]
+        else:
+            nsfw_text_score = 1 - nsfw_text["score"]
+        print(f"NSFW text score: {nsfw_text_score}")
+        if nsfw_text_score > NSFW_THRESHOLD:
+            return (
+                None,
+                str(seed),
+                None,
+                "Your prompt may contain NSFW content.",
+            )
+
         seed = int(seed)
         if seed == -1:
             seed = None
@@ -71,10 +99,14 @@ class FluxGenerator:
 
         if init_image is not None:
             if isinstance(init_image, np.ndarray):
-                init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
+                init_image = (
+                    torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
+                )
                 init_image = init_image.unsqueeze(0)
             init_image = init_image.to(self.device)
-            init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
+            init_image = torch.nn.functional.interpolate(
+                init_image, (opts.height, opts.width)
+            )
             if self.offload:
                 self.ae.encoder.to(self.device)
             init_image = self.ae.encode(init_image.to())
@@ -139,9 +171,12 @@ class FluxGenerator:
         x = rearrange(x[0], "c h w -> h w c")
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_score = [x["score"] for x in self.nsfw_classifier(img) if x["label"] == "nsfw"][0]
+        nsfw_image_score = [
+            x["score"] for x in self.nsfw_image_classifier(img) if x["label"] == "nsfw"
+        ][0]
+        print(f"NSFW image score: {nsfw_image_score}")
 
-        if nsfw_score < NSFW_THRESHOLD:
+        if nsfw_image_score < NSFW_THRESHOLD:
             filename = f"output/gradio/{uuid.uuid4()}.jpg"
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             exif_data = Image.Exif()
@@ -158,26 +193,43 @@ class FluxGenerator:
 
             return img, str(opts.seed), filename, None
         else:
-            return None, str(opts.seed), None, "Your generated image may contain NSFW content."
+            return (
+                None,
+                str(opts.seed),
+                None,
+                "Your generated image may contain NSFW content.",
+            )
 
 
 def create_demo(
-    model_name: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", offload: bool = False
+    model_name: str,
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    offload: bool = False,
 ):
     generator = FluxGenerator(model_name, device, offload)
     is_schnell = model_name == "flux-schnell"
 
-    with gr.Blocks() as demo:
+    with gr.Blocks(theme="lone17/kotaemon") as demo:
         gr.Markdown(f"# Flux Image Generation Demo - Model: {model_name}")
 
         with gr.Row():
             with gr.Column():
                 prompt = gr.Textbox(
                     label="Prompt",
-                    value='a photo of a forest with mist swirling around the tree trunks. The word "FLUX" is painted over it in big, red brush strokes with visible texture',
+                    value=(
+                        "a photo of a forest with mist swirling around the tree trunks."
+                        ' The word "FLUX" is painted over it in big, red brush strokes'
+                        " with visible texture"
+                    ),
                 )
-                do_img2img = gr.Checkbox(label="Image to Image", value=False, interactive=not is_schnell)
+                do_img2img = gr.Checkbox(
+                    label="Image to Image", value=False, interactive=not is_schnell
+                )
                 init_image = gr.Image(label="Input Image", visible=False)
+                image2image_strength = gr.Slider(
+                    0.0, 1.0, 0.8, step=0.1, label="Noising strength", visible=False
+                )
+
                 image2image_strength = gr.Slider(
                     0.0, 1.0, 0.8, step=0.1, label="Noising strength", visible=False
                 )
@@ -185,11 +237,22 @@ def create_demo(
                 with gr.Accordion("Advanced Options", open=False):
                     width = gr.Slider(128, 8192, 1360, step=16, label="Width")
                     height = gr.Slider(128, 8192, 768, step=16, label="Height")
-                    num_steps = gr.Slider(1, 50, 4 if is_schnell else 50, step=1, label="Number of steps")
+                    num_steps = gr.Slider(
+                        1, 50, 4 if is_schnell else 50, step=1, label="Number of steps"
+                    )
                     guidance = gr.Slider(
-                        1.0, 10.0, 3.5, step=0.1, label="Guidance", interactive=not is_schnell
+                        1.0,
+                        10.0,
+                        3.5,
+                        step=0.1,
+                        label="Guidance",
+                        interactive=not is_schnell,
                     )
                     seed = gr.Textbox(-1, label="Seed (-1 for random)")
+                    add_sampling_metadata = gr.Checkbox(
+                        label="Add sampling parameters to metadata?", value=True
+                    )
+
                     add_sampling_metadata = gr.Checkbox(
                         label="Add sampling parameters to metadata?", value=True
                     )
@@ -199,7 +262,7 @@ def create_demo(
             with gr.Column():
                 output_image = gr.Image(label="Generated Image")
                 seed_output = gr.Number(label="Used Seed")
-                warning_text = gr.Textbox(label="Warning", visible=False)
+                warning_text = gr.Textbox(label="Warning", visible=True)
                 download_btn = gr.File(label="Download full-resolution")
 
         def update_img2img(do_img2img):
@@ -208,7 +271,9 @@ def create_demo(
                 image2image_strength: gr.update(visible=do_img2img),
             }
 
-        do_img2img.change(update_img2img, do_img2img, [init_image, image2image_strength])
+        do_img2img.change(
+            update_img2img, do_img2img, [init_image, image2image_strength]
+        )
 
         generate_btn.click(
             fn=generator.generate_image,
@@ -234,14 +299,36 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Flux")
     parser.add_argument(
-        "--name", type=str, default="flux-schnell", choices=list(configs.keys()), help="Model name"
+        "--name",
+        type=str,
+        default="flux-schnell",
+        choices=list(configs.keys()),
+        help="Model name",
     )
     parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use"
+        "--device",
+        type=str,
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        help="Device to use",
     )
-    parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
-    parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
+    parser.add_argument(
+        "--offload",
+        default=False,
+        action="store_true",
+        help="Offload model to CPU when not in use",
+    )
+    parser.add_argument(
+        "--share",
+        default=False,
+        action="store_true",
+        help="Create a public link to your demo",
+    )
+    parser.add_argument("--port", type=int, default=8860, help="Port to use.")
     args = parser.parse_args()
 
     demo = create_demo(args.name, args.device, args.offload)
-    demo.launch(share=args.share)
+    demo.launch(
+        share=args.share,
+        server_name="0.0.0.0",
+        server_port=args.port,
+    )
