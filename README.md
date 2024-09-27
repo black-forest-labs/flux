@@ -1,4 +1,5 @@
 # FLUX
+
 by Black Forest Labs: https://blackforestlabs.ai
 
 ![grid](assets/grid.jpg)
@@ -107,6 +108,22 @@ To run the demo with the dev model and create a public link:
 python demo_gr.py --name flux-dev --share
 ```
 
+There is also a simple FastAPI demo:
+
+```bash
+python demo_fastapi.py --name flux-schnell --device cuda
+```
+
+You can use the endpoint `/generate` to generate an image:
+
+```bash
+curl --location '0.0.0.0:9000/generate' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "prompt": "a cat holding a sign that says hello world"
+  }'
+```
+
 ## Diffusers integration
 
 `FLUX.1 [schnell]` and `FLUX.1 [dev]` are integrated with the [🧨 diffusers](https://github.com/huggingface/diffusers) library. To use it with diffusers, install it:
@@ -183,4 +200,8 @@ $ python -m flux.api --prompt="A beautiful beach" save outputs/api
 
 # open the image directly
 $ python -m flux.api --prompt="A beautiful beach" image show
+```
+
+```
+
 ```
