@@ -9,7 +9,12 @@ from einops import rearrange
 from fire import Fire
 from PIL import ExifTags, Image
 from transformers import pipeline
+
+from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
+
 from flux.trt import TRTBuilder
+
 NSFW_THRESHOLD = 0.85
 
 
@@ -168,8 +173,14 @@ def main(
             clip_model=clip,
             ae_model=ae,
         )
-
-
+        builder.load_engines(
+            "/workspace/data/flux/engine",
+            onnx_dir="/workspace/data/flux/onnx",
+            onnx_opset=19,
+            opt_batch_size=2,
+            opt_image_height=height,
+            opt_image_width=width,
+        )
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
