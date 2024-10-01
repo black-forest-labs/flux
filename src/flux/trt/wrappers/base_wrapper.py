@@ -22,7 +22,7 @@ from .utils_modelopt import (
 )
 
 
-class Optimizer():
+class Optimizer:
     def __init__(self, onnx_graph, verbose=False):
         self.graph = gs.import_onnx(onnx_graph)
         self.verbose = verbose
@@ -209,9 +209,14 @@ class BaseWrapper(ABC):
         self.embedding_dim = embedding_dim
         self.extra_output_names = []
 
-
     @abstractmethod
-    def get_sample_input(self, *args, **kwargs) -> torch.Tensor:
+    def get_sample_input(
+        self,
+        batch_size: int,
+        opt_image_height: int,
+        opt_image_width: int,
+        static_shape: bool,
+    ) -> torch.Tensor:
         pass
 
     @abstractmethod
@@ -230,6 +235,10 @@ class BaseWrapper(ABC):
     def check_dims(self, *args) -> None | tuple[int, int]:
         pass
 
+    @abstractmethod
+    def get_model_to_trace(self) -> torch.nn.Module:
+        pass
+
     # Helper utility for ONNX export
     def export_onnx(
         self,
@@ -246,7 +255,7 @@ class BaseWrapper(ABC):
             if not os.path.exists(onnx_path):
                 print(f"[I] Exporting ONNX model: {onnx_path}")
 
-                def export_onnx(model):
+                def export_onnx(model: torch.nn.Module):
                     inputs = self.get_sample_input(1, opt_image_height, opt_image_width, static_shape)
                     torch.onnx.export(
                         model,
@@ -260,8 +269,8 @@ class BaseWrapper(ABC):
                         dynamic_axes=self.get_dynamic_axes(),
                     )
 
-                    with torch.autocast("cuda"):
-                        export_onnx(self.model)
+                with torch.autocast("cuda"):
+                    export_onnx(self.get_model_to_trace())
             else:
                 print(f"[I] Found cached ONNX model: {onnx_path}")
 

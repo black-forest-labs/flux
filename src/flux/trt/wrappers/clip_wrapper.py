@@ -1,11 +1,12 @@
 import torch
+from flux.modules.conditioner import HFEmbedder
 from .base_wrapper import BaseWrapper, Optimizer
 
 
 class CLIPWrapper(BaseWrapper):
     def __init__(
         self,
-        model: torch.nn.Module,
+        model: HFEmbedder,
         fp16=False,
         tf32=False,
         bf16=False,
@@ -17,7 +18,7 @@ class CLIPWrapper(BaseWrapper):
     ):
         super().__init__(
             model=model,
-            embedding_dim=self.model.hf_module.config.hidden_size,
+            embedding_dim=model.hf_module.config.hidden_size,
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
@@ -29,7 +30,7 @@ class CLIPWrapper(BaseWrapper):
         if fp16:
             self.model = self.model.to(dtype=torch.float16)
 
-        self.text_maxlen = self.model.hf_module.config.max_position_embeddings
+        self.text_maxlen = self.model.max_length
         self.keep_pooled_output = keep_pooled_output
         self.hidden_layer_offset = -1
 
@@ -61,7 +62,13 @@ class CLIPWrapper(BaseWrapper):
     ) -> None | tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
 
-    def get_sample_input(self, batch_size) -> torch.Tensor:
+    def get_sample_input(
+        self,
+        batch_size: int,
+        opt_image_height: int,
+        opt_image_width: int,
+        static_shape: bool,
+    ) -> torch.Tensor:
         self.check_dims(batch_size)
         return torch.zeros(
             batch_size,
@@ -69,6 +76,9 @@ class CLIPWrapper(BaseWrapper):
             dtype=torch.int32,
             device=self.device,
         )
+
+    def get_model_to_trace(self) -> torch.nn.Module:
+        return self.model.hf_module
 
     def optimize(self, onnx_graph, return_onnx=True):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
