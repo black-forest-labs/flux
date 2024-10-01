@@ -13,7 +13,7 @@ from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
 from flux.util import (configs, embed_watermark, load_ae, load_clip,
                        load_flow_model, load_t5)
 from transformers import pipeline
-
+from flux.trt import TRTBuilder
 NSFW_THRESHOLD = 0.85
 
 @dataclass
@@ -110,6 +110,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
+    trt: bool = False,
+    **kwargs: dict | None,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -128,6 +130,8 @@ def main(
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
+        trt: use TensorRT backend for optimized inference
+        kwargs: additional arguments for TensorRT support
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -159,6 +163,16 @@ def main(
     clip = load_clip(torch_device)
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
+
+    if trt:
+        builder = TRTBuilder(
+            flux_model=model,
+            t5_model=t5,
+            clip_model=clip,
+            ae_model=ae,
+        )
+        
+
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
@@ -229,7 +243,7 @@ def main(
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
         nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][0]
-        
+
         if nsfw_score < NSFW_THRESHOLD:
             exif_data = Image.Exif()
             exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
