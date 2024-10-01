@@ -183,10 +183,6 @@ class Optimizer():
 
 
 class BaseWrapper(ABC):
-    @property
-    def model(self):
-        return self._model
-
     def __init__(
         self,
         model: nn.Module,
@@ -198,7 +194,7 @@ class BaseWrapper(ABC):
         verbose=True,
         do_constant_folding=True,
     ):
-        self._model = model
+        self.model = model
         self.name = model.__class__.__name__
         self.device = next(model.parameters()).device
         self.verbose = verbose
