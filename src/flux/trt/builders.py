@@ -9,7 +9,7 @@ from flux.model import Flux
 from flux.trt.wrappers import CLIPWrapper, BaseWrapper
 
 class TRTBuilder:
-    __stages__ = ["clip", "t5", "transformer", "vae"]
+    __stages__ = ["clip", "t5", "transformer", "ae"]
 
     @property
     def stages(self) -> list[str]:
