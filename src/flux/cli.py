@@ -171,8 +171,14 @@ def main(
             clip_model=clip,
             ae_model=ae,
         )
-        
-
+        builder.load_engines(
+            "/workspace/data/flux/engine",
+            onnx_dir="/workspace/data/flux/onnx",
+            onnx_opset=19,
+            opt_batch_size=2,
+            opt_image_height=height,
+            opt_image_width=width,
+        )
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
