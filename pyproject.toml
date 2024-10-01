@@ -32,9 +32,11 @@ gradio = [
   "gradio",
 ]
 trt = [
+  "onnx == 1.15.0",
+  "onnxruntime == 1.17.3",
   "tensorrt >= 10.5.0",
   "onnx-graphsurgeon",
-  "onnxmltools",
+  "onnxconverter-common",
 ]
 all = [
   "flux[streamlit]",
