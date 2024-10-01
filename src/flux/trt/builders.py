@@ -6,7 +6,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-
+from flux.trt.wrappers import CLIPWrapper, BaseWrapper
 
 class TRTBuilder:
     __stages__ = ["clip", "t5", "transformer", "vae"]
@@ -21,9 +21,26 @@ class TRTBuilder:
         t5_model: HFEmbedder,
         clip_model: HFEmbedder,
         ae_model: AutoEncoder,
+        max_batch=16,
+        fp16=True,
+        tf32=False,
+        bf16=False,
+        verbose=True,
+        output_hidden_states=False,
+        keep_pooled_output=False,
     ):
+        assert sum([fp16, tf32, bf16]) <= 1
         self.models = {
-            "clip": clip_model,
+            "clip": CLIPWrapper(
+                clip_model,
+                max_batch=max_batch,
+                fp16=True,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+                keep_pooled_output=keep_pooled_output,
+                output_hidden_states=output_hidden_states,
+            ),
             "transformer": flux_model,
             "t5": t5_model,
             "ae": ae_model,
@@ -134,7 +151,7 @@ class TRTBuilder:
 
     def _export_onnx(
         self,
-        obj: torch.Module,
+        obj: BaseWrapper,
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
@@ -157,7 +174,6 @@ class TRTBuilder:
                 onnx_opset,
                 opt_image_height,
                 opt_image_width,
-                enable_lora_merge=model_config["do_lora_merge"],
                 static_shape=static_shape,
             )
 
