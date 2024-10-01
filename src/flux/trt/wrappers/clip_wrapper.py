@@ -6,11 +6,11 @@ class CLIPWrapper(BaseWrapper):
     def __init__(
         self,
         model: torch.nn.Module,
-        verbose=True,
         fp16=False,
         tf32=False,
         bf16=False,
         max_batch=16,
+        verbose=True,
         output_hidden_states=False,
         do_constant_folding=True,
         keep_pooled_output=False,
