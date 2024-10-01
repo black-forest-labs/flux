@@ -1,19 +1,20 @@
 import os
 import re
 import tempfile
-
+from abc import ABC, abstractmethod
+from typing import Any
 
 import torch
 from torch import nn
 import onnx
 import onnx_graphsurgeon as gs
-from onnx import numpy_helper, shape_inference
+from onnx import shape_inference
 
 from onnxconverter_common.float16 import convert_float_to_float16
 from polygraphy.backend.onnx.loader import fold_constants
 
 
-from .wrappers.utils_modelopt import (
+from .utils_modelopt import (
     convert_zp_fp8,
     cast_resize_io,
     convert_fp16_io,
@@ -21,7 +22,7 @@ from .wrappers.utils_modelopt import (
 )
 
 
-class Optimizer:
+class Optimizer():
     def __init__(self, onnx_graph, verbose=False):
         self.graph = gs.import_onnx(onnx_graph)
         self.verbose = verbose
@@ -43,7 +44,10 @@ class Optimizer:
                 self.graph.outputs[i].name = name
 
     def fold_constants(self, return_onnx=False):
-        onnx_graph = fold_constants(gs.export_onnx(self.graph), allow_onnxruntime_shape_inference=True)
+        onnx_graph = fold_constants(
+            gs.export_onnx(self.graph),
+            allow_onnxruntime_shape_inference=True,
+        )
         self.graph = gs.import_onnx(onnx_graph)
         if return_onnx:
             return onnx_graph
@@ -62,7 +66,10 @@ class Optimizer:
                 all_tensors_to_one_file=True,
                 convert_attribute=False,
             )
-            onnx.shape_inference.infer_shapes_path(onnx_orig_path, onnx_inferred_path)
+            onnx.shape_inference.infer_shapes_path(
+                model_path=onnx_orig_path,
+                output_path=onnx_inferred_path,
+            )
             onnx_graph = onnx.load(onnx_inferred_path)
         else:
             onnx_graph = shape_inference.infer_shapes(onnx_graph)
@@ -112,9 +119,33 @@ class Optimizer:
             ".\\d+/attn\\d+/to_v/input_quantizer/DequantizeLinear_output_0"
         )
 
-        qs = sorted((x.group(0) for x in filter(lambda x: x is not None, [re.match(q_pat, key) for key in keys])))
-        ks = sorted((x.group(0) for x in filter(lambda x: x is not None, [re.match(k_pat, key) for key in keys])))
-        vs = sorted((x.group(0) for x in filter(lambda x: x is not None, [re.match(v_pat, key) for key in keys])))
+        qs = sorted(
+            (
+                x.group(0)
+                for x in filter(
+                    lambda x: x is not None,
+                    [re.match(q_pat, key) for key in keys],
+                )
+            )
+        )
+        ks = sorted(
+            (
+                x.group(0)
+                for x in filter(
+                    lambda x: x is not None,
+                    [re.match(k_pat, key) for key in keys],
+                )
+            )
+        )
+        vs = sorted(
+            (
+                x.group(0)
+                for x in filter(
+                    lambda x: x is not None,
+                    [re.match(v_pat, key) for key in keys],
+                )
+            )
+        )
 
         removed = 0
         assert len(qs) == len(ks) == len(vs), "Failed to collect tensors"
@@ -151,7 +182,7 @@ class Optimizer:
         cast_fp8_mha_io(self.graph)
 
 
-class ExporterWrapper:
+class BaseWrapper(ABC):
     @property
     def model(self):
         return self._model
@@ -166,6 +197,22 @@ class ExporterWrapper:
         self.do_constant_folding = True
         self.verbose = verbose
         self.device = next(model.parameters()).device
+
+    @abstractmethod
+    def get_sample_input(self, *args, **kwargs) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def get_input_names(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def get_output_names(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def get_dynamic_axes(self) -> dict[str, Any]:
+        pass
 
     # Helper utility for ONNX export
     def export_onnx(
