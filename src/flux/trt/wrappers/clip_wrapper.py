@@ -25,6 +25,10 @@ class CLIPWrapper(BaseWrapper):
             verbose=verbose,
             do_constant_folding=do_constant_folding,
         )
+
+        if fp16:
+            self.model = self.model.to(dtype=torch.float16)
+
         self.text_maxlen = self.model.hf_module.config.max_position_embeddings
         self.keep_pooled_output = keep_pooled_output
         self.hidden_layer_offset = -1
