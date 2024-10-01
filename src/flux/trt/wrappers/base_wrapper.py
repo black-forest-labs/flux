@@ -190,13 +190,29 @@ class BaseWrapper(ABC):
     def __init__(
         self,
         model: nn.Module,
-        verbose: bool = True,
+        embedding_dim: int,
+        fp16=False,
+        tf32=False,
+        bf16=False,
+        max_batch=16,
+        verbose=True,
+        do_constant_folding=True,
     ):
         self._model = model
         self.name = model.__class__.__name__
-        self.do_constant_folding = True
-        self.verbose = verbose
         self.device = next(model.parameters()).device
+        self.verbose = verbose
+        self.do_constant_folding = do_constant_folding
+
+        self.fp16 = fp16
+        self.tf32 = tf32
+        self.bf16 = bf16
+
+        self.min_batch = 1
+        self.max_batch = max_batch
+        self.embedding_dim = embedding_dim
+        self.extra_output_names = []
+
 
     @abstractmethod
     def get_sample_input(self, *args, **kwargs) -> torch.Tensor:
@@ -212,6 +228,10 @@ class BaseWrapper(ABC):
 
     @abstractmethod
     def get_dynamic_axes(self) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def check_dims(self, *args) -> None | tuple[int, int]:
         pass
 
     # Helper utility for ONNX export
@@ -244,7 +264,7 @@ class BaseWrapper(ABC):
                         dynamic_axes=self.get_dynamic_axes(),
                     )
 
-                    with torch.inference_mode(), torch.autocast("cuda"):
+                    with torch.autocast("cuda"):
                         export_onnx(self.model)
             else:
                 print(f"[I] Found cached ONNX model: {onnx_path}")
@@ -264,7 +284,7 @@ class BaseWrapper(ABC):
         else:
             print(f"[I] Found cached optimized ONNX model: {onnx_opt_path} ")
 
-    def optimize(self, onnx_graph, return_onnx=True, **kwargs):
+    def optimize(self, onnx_graph, return_onnx=True, *args, **kwargs):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info(self.name + ": original")
         opt.cleanup()
