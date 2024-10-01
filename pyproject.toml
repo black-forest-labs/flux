@@ -31,9 +31,15 @@ streamlit = [
 gradio = [
   "gradio",
 ]
+trt = [
+  "tensorrt >= 10.5.0",
+  "onnx-graphsurgeon",
+  "onnxmltools",
+]
 all = [
   "flux[streamlit]",
   "flux[gradio]",
+  "flux[trt]",
 ]
 
 [project.scripts]
