@@ -13,7 +13,6 @@ class CLIPWrapper(BaseWrapper):
         max_batch=16,
         verbose=True,
         output_hidden_states=False,
-        do_constant_folding=True,
         keep_pooled_output=False,
     ):
         super().__init__(
@@ -24,7 +23,6 @@ class CLIPWrapper(BaseWrapper):
             bf16=bf16,
             max_batch=max_batch,
             verbose=verbose,
-            do_constant_folding=do_constant_folding,
         )
 
         self.text_maxlen = self.model.max_length
