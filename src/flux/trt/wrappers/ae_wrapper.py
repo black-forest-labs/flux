@@ -1,7 +1,7 @@
 import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
-from .base_wrapper import BaseWrapper, Optimizer
+from .base_wrapper import BaseWrapper
 
 
 class AEWrapper(BaseWrapper):
@@ -83,4 +83,3 @@ class AEWrapper(BaseWrapper):
     def get_model(self) -> torch.nn.Module:
         self.model.forward = self.model.decode
         return self.model
-
