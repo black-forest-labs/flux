@@ -1,53 +1,68 @@
 import torch
-from flux.modules.conditioner import HFEmbedder
+import math
+from flux.model import Flux
 from .base_wrapper import BaseWrapper
 
 
 class FluxWrapper(BaseWrapper):
     def __init__(
         self,
-        model: HFEmbedder,
+        model: Flux,
         fp16=False,
         tf32=False,
         bf16=False,
         max_batch=16,
         verbose=True,
+        compression_factor=8,
+        build_strongly_typed=False,
     ):
         super().__init__(
             model=model,
-            embedding_dim=model.hf_module.config.hidden_size,
+            embedding_dim=model.hidden_size,
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
             verbose=verbose,
         )
-
-        self.text_maxlen = self.model.max_length
-        self.hidden_layer_offset = -1
+        self.compression_factor = compression_factor
+        self.min_image_shape = 256  # min image resolution: 256x256
+        self.max_image_shape = 1360  # max image resolution: 1344x1344
+        self.min_latent_shape = 2 * math.ceil(self.min_image_shape / (self.compression_factor * 2))
+        self.max_latent_shape = 2 * math.ceil(self.max_image_shape / (self.compression_factor * 2))
+        self.build_strongly_typed = build_strongly_typed
 
         # set proper dtype
         self.set_model_to_dtype()
 
     def get_input_names(self):
-        return ["input_ids"]
+        return ["img", "img_ids", "txt", "txt_ids", "y", "timesteps", "guidance"]
 
     def get_output_names(self):
-        output_names = ["text_embeddings"]
-        return output_names
+        return ["img"]
 
     def get_dynamic_axes(self):
         dynamic_axes = {
-            "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
+            "img": {0: "B", 1: "latent_dim"},
+            "img_ids": {0: "B", 1: "latent_dim"},
+            "txt": {0: "B"},
+            "txt_ids": {0: "B"},
+            "y": {0: "B"},
+            "timesteps": {0: "B"},
+            "guidance": {0: "B"},
         }
         return dynamic_axes
 
-    def check_dims(
-        self,
-        batch_size: int,
-    ) -> None | tuple[int, int]:
+    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
+
+        latent_height = 2 * math.ceil(image_height / (2 * self.compression_factor))
+        latent_width = 2 * math.ceil(image_width / (2 * self.compression_factor))
+
+        assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
+        assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
+        return (latent_height, latent_width)
 
     def get_sample_input(
         self,
@@ -55,14 +70,35 @@ class FluxWrapper(BaseWrapper):
         opt_image_height: int,
         opt_image_width: int,
         static_shape: bool,
-    ) -> torch.Tensor:
-        self.check_dims(batch_size)
-        return torch.zeros(
-            batch_size,
-            self.text_maxlen,
-            dtype=torch.int32,
-            device=self.device,
+    ) -> tuple:
+        latent_height, latent_width = self.check_dims(
+            batch_size=batch_size,
+            image_height=opt_image_height,
+            image_width=opt_image_width,
+        )
+        dtype = torch.float16 if self.fp16 else torch.float32
+
+        return (
+            torch.randn(
+                batch_size,
+                (latent_height // 2) * (latent_width // 2),
+                self.model.params.in_channels,
+                dtype=dtype,
+                device=self.device,
+            ),
+            torch.zeros(
+                batch_size,
+                (latent_height // 2) * (latent_width // 2),
+                3,
+                dtype=torch.float32,
+                device=self.device,
+            ),
+            torch.randn(batch_size, 256, self.model.params.context_in_dim, dtype=dtype, device=self.device),
+            torch.randn(batch_size, 256, 3, dtype=torch.float32, device=self.device),
+            torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
+            torch.randn(batch_size, self.model.params.vec_in_dim, dtype=dtype, device=self.device),
+            torch.randn(batch_size, dtype=dtype, device=self.device),
         )
 
     def get_model(self) -> torch.nn.Module:
-        return self.model.hf_module
+        return self.model
