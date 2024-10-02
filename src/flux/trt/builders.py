@@ -6,7 +6,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-from flux.trt.wrappers import BaseWrapper, CLIPWrapper, FluxWrapper, T5Wrapper
+from flux.trt.wrappers import BaseWrapper, AEWrapper, CLIPWrapper, FluxWrapper, T5Wrapper
 
 
 class TRTBuilder:
@@ -58,7 +58,15 @@ class TRTBuilder:
                 bf16=bf16,
                 verbose=verbose,
             ),
-            "ae": ae_model,
+            "ae": AEWrapper(
+                ae_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+                compression_factor=kwargs.get("compression_factor", 8),
+            ),
         }
 
         assert all(
