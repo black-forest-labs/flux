@@ -27,9 +27,6 @@ class CLIPWrapper(BaseWrapper):
             do_constant_folding=do_constant_folding,
         )
 
-        if fp16:
-            self.model = self.model.to(dtype=torch.float16)
-
         self.text_maxlen = self.model.max_length
         self.keep_pooled_output = keep_pooled_output
         self.hidden_layer_offset = -1
@@ -37,6 +34,9 @@ class CLIPWrapper(BaseWrapper):
         # Output the final hidden state
         if output_hidden_states:
             self.extra_output_names = ["hidden_states"]
+
+        # set proper dtype
+        self.set_model_to_dtype()
 
     def get_input_names(self):
         return ["input_ids"]
