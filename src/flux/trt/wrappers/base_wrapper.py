@@ -209,6 +209,9 @@ class BaseWrapper(ABC):
         self.embedding_dim = embedding_dim
         self.extra_output_names = []
 
+        assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
+    
+
     @abstractmethod
     def get_sample_input(
         self,
