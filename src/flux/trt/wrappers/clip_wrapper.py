@@ -77,7 +77,7 @@ class CLIPWrapper(BaseWrapper):
             device=self.device,
         )
 
-    def get_model_to_trace(self) -> torch.nn.Module:
+    def get_model(self) -> torch.nn.Module:
         return self.model.hf_module
 
     def optimize(self, onnx_graph, return_onnx=True):

@@ -250,7 +250,7 @@ class BaseWrapper(ABC):
         pass
 
     @abstractmethod
-    def get_model_to_trace(self) -> torch.nn.Module:
+    def get_model(self) -> torch.nn.Module:
         pass
 
     # Helper utility for ONNX export
@@ -284,7 +284,7 @@ class BaseWrapper(ABC):
                     )
 
                 with torch.autocast("cuda"):
-                    export_onnx(self.get_model_to_trace())
+                    export_onnx(self.get_model())
             else:
                 print(f"[I] Found cached ONNX model: {onnx_path}")
 
