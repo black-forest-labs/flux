@@ -18,7 +18,6 @@ class FluxWrapper(BaseWrapper):
     ):
         super().__init__(
             model=model,
-            embedding_dim=model.hidden_size,
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
