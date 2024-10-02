@@ -277,6 +277,7 @@ class DiagonalGaussian(nn.Module):
 class AutoEncoder(nn.Module):
     def __init__(self, params: AutoEncoderParams):
         super().__init__()
+        self.params = params
         self.encoder = Encoder(
             resolution=params.resolution,
             in_channels=params.in_channels,
