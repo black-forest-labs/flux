@@ -228,7 +228,7 @@ class BaseWrapper(ABC):
         opt_image_height: int,
         opt_image_width: int,
         static_shape: bool,
-    ) -> torch.Tensor:
+    ) -> tuple | torch.Tensor:
         pass
 
     @abstractmethod
