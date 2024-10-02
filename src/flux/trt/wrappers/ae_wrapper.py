@@ -17,7 +17,6 @@ class AEWrapper(BaseWrapper):
     ):
         super().__init__(
             model=model,
-            embedding_dim=model.hf_module.config.hidden_size,
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
@@ -76,7 +75,8 @@ class AEWrapper(BaseWrapper):
         )
 
     def get_model(self) -> torch.nn.Module:
-        return self.model.hf_module
+        self.model.forward = self.model.decode
+        return self.model
 
     def optimize(self, onnx_graph, return_onnx=True):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
