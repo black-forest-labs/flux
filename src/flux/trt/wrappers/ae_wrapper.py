@@ -1,4 +1,5 @@
 import torch
+from math import ceil
 from flux.modules.autoencoder import AutoEncoder
 from .base_wrapper import BaseWrapper, Optimizer
 
@@ -12,8 +13,7 @@ class AEWrapper(BaseWrapper):
         bf16=False,
         max_batch=16,
         verbose=True,
-        output_hidden_states=False,
-        keep_pooled_output=False,
+        compression_factor=8,
     ):
         super().__init__(
             model=model,
@@ -24,40 +24,39 @@ class AEWrapper(BaseWrapper):
             verbose=verbose,
         )
 
-        self.text_maxlen = self.model.max_length
-        self.keep_pooled_output = keep_pooled_output
-        self.hidden_layer_offset = -1
-
-        # Output the final hidden state
-        if output_hidden_states:
-            self.extra_output_names = ["hidden_states"]
+        # TODO: fix compression_factor and model.param.z_channel
+        self.compression_factor = compression_factor
+        self.min_image_shape = 256  # min image resolution: 256x256
+        self.max_image_shape = 1360  # max image resolution: 1344x1344
+        self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
+        self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
 
         # set proper dtype
         self.set_model_to_dtype()
 
     def get_input_names(self):
-        return ["input_ids"]
+        return ["latent"]
 
     def get_output_names(self):
-        output_names = ["text_embeddings"]
-        if self.keep_pooled_output:
-            output_names += ["pooled_embeddings"]
-        return output_names
+        return ["images"]
 
     def get_dynamic_axes(self):
-        dynamic_axes = {
-            "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
+        return {
+            "latent": {0: "B", 2: "H", 3: "W"},
+            "images": {0: "B", 2: f"{self.compression_factor}H", 3: f"{self.compression_factor}W"},
         }
-        if self.keep_pooled_output:
-            dynamic_axes["pooled_embeddings"] = {0: "B"}
-        return dynamic_axes
 
-    def check_dims(
-        self,
-        batch_size: int,
-    ) -> None | tuple[int, int]:
+    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> None | tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
+
+        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
+        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
+
+        assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
+        assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
+        return (latent_height, latent_width)
 
     def get_sample_input(
         self,
@@ -66,36 +65,22 @@ class AEWrapper(BaseWrapper):
         opt_image_width: int,
         static_shape: bool,
     ) -> torch.Tensor:
-        self.check_dims(batch_size)
-        return torch.zeros(
+        latent_height, latent_width = self.check_dims(
+            batch_size=batch_size,
+            image_height=opt_image_height,
+            image_width=opt_image_width,
+        )
+        dtype = torch.float16 if self.fp16 else torch.float32
+
+        return torch.randn(
             batch_size,
-            self.text_maxlen,
-            dtype=torch.int32,
+            self.model.params.z_channels,
+            latent_height,
+            latent_width,
+            dtype=dtype,
             device=self.device,
         )
-
     def get_model(self) -> torch.nn.Module:
         self.model.forward = self.model.decode
         return self.model
 
-    def optimize(self, onnx_graph, return_onnx=True):
-        opt = Optimizer(onnx_graph, verbose=self.verbose)
-        opt.info(self.name + ": original")
-        keep_outputs = [0, 1] if self.keep_pooled_output else [0]
-        opt.select_outputs(keep_outputs)
-        opt.cleanup()
-        opt.fold_constants()
-        opt.info(self.name + ": fold constants")
-        opt.infer_shapes()
-        opt.info(self.name + ": shape inference")
-        opt.select_outputs(keep_outputs, names=self.get_output_names())  # rename network outputs
-        opt.info(self.name + ": rename network output(s)")
-        opt_onnx_graph = opt.cleanup(return_onnx=return_onnx)
-        if "hidden_states" in self.extra_output_names:
-            opt_onnx_graph = opt.clip_add_hidden_states(
-                hidden_layer_offset=self.hidden_layer_offset,
-                return_onnx=return_onnx,
-            )
-            opt.info(self.name + ": added hidden_states")
-        opt.info(self.name + ": finished")
-        return opt_onnx_graph
