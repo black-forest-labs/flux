@@ -186,7 +186,6 @@ class BaseWrapper(ABC):
     def __init__(
         self,
         model: nn.Module,
-        embedding_dim: int,
         fp16=False,
         tf32=False,
         bf16=False,
@@ -206,7 +205,6 @@ class BaseWrapper(ABC):
 
         self.min_batch = 1
         self.max_batch = max_batch
-        self.embedding_dim = embedding_dim
         self.extra_output_names = []
 
         assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
