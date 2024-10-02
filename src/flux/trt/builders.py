@@ -6,7 +6,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-from flux.trt.wrappers import BaseWrapper, CLIPWrapper, T5Wrapper
+from flux.trt.wrappers import BaseWrapper, CLIPWrapper, FluxWrapper, T5Wrapper
 
 
 class TRTBuilder:
@@ -27,8 +27,7 @@ class TRTBuilder:
         tf32=False,
         bf16=False,
         verbose=True,
-        output_hidden_states=False,
-        keep_pooled_output=False,
+        **kwargs,
     ):
         self.models = {
             "clip": CLIPWrapper(
@@ -38,10 +37,19 @@ class TRTBuilder:
                 tf32=tf32,
                 bf16=bf16,
                 verbose=verbose,
-                keep_pooled_output=keep_pooled_output,
-                output_hidden_states=output_hidden_states,
+                keep_pooled_output=kwargs.get("keep_pooled_output", False),
+                output_hidden_states=kwargs.get("output_hidden_states", False),
             ),
-            "transformer": flux_model,
+            "transformer": FluxWrapper(
+                flux_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+                compression_factor=kwargs.get("compression_factor", 8),
+                build_strongly_typed=kwargs.get("build_strongly_typed", False),
+            ),
             "t5": T5Wrapper(
                 t5_model,
                 max_batch=max_batch,
