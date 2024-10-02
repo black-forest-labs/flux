@@ -210,7 +210,18 @@ class BaseWrapper(ABC):
         self.extra_output_names = []
 
         assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
-    
+
+    def set_model_to_dtype(self):
+        if self.fp16:
+            self.model = self.model.to(dtype=torch.float16)
+        elif self.tf32:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            self.model = self.model.to(dtype=torch.float32)
+        elif self.bf16:
+            self.model = self.model.to(dtype=torch.bfloat16)
+        else:
+            self.model = self.model.to(dtype=torch.float32)
 
     @abstractmethod
     def get_sample_input(
