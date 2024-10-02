@@ -6,7 +6,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-from flux.trt.wrappers import CLIPWrapper, BaseWrapper
+from flux.trt.wrappers import BaseWrapper, CLIPWrapper, T5Wrapper
 
 
 class TRTBuilder:
@@ -42,7 +42,14 @@ class TRTBuilder:
                 output_hidden_states=output_hidden_states,
             ),
             "transformer": flux_model,
-            "t5": t5_model,
+            "t5": T5Wrapper(
+                t5_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+            ),
             "ae": ae_model,
         }
 
