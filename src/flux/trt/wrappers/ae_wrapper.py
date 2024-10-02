@@ -1,12 +1,12 @@
 import torch
-from flux.modules.conditioner import HFEmbedder
+from flux.modules.autoencoder import AutoEncoder
 from .base_wrapper import BaseWrapper, Optimizer
 
 
-class VAEWrapper(BaseWrapper):
+class AEWrapper(BaseWrapper):
     def __init__(
         self,
-        model: HFEmbedder,
+        model: AutoEncoder,
         fp16=False,
         tf32=False,
         bf16=False,
