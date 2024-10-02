@@ -8,6 +8,7 @@ from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
 from flux.trt.wrappers import CLIPWrapper, BaseWrapper
 
+
 class TRTBuilder:
     __stages__ = ["clip", "t5", "transformer", "ae"]
 
@@ -29,12 +30,11 @@ class TRTBuilder:
         output_hidden_states=False,
         keep_pooled_output=False,
     ):
-        assert sum([fp16, tf32, bf16]) <= 1
         self.models = {
             "clip": CLIPWrapper(
                 clip_model,
                 max_batch=max_batch,
-                fp16=True,
+                fp16=fp16,
                 tf32=tf32,
                 bf16=bf16,
                 verbose=verbose,
@@ -46,7 +46,9 @@ class TRTBuilder:
             "ae": ae_model,
         }
 
-        assert all(stage in self.models for stage in self.stages)
+        assert all(
+            stage in self.models for stage in self.stages
+        ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
 
     @staticmethod
     def _create_directories(engine_dir: str, onnx_dir: str):
