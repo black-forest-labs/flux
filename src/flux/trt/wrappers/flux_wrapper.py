@@ -1,5 +1,5 @@
 import torch
-import math
+from math import ceil
 from flux.model import Flux
 from .base_wrapper import BaseWrapper
 
@@ -27,8 +27,8 @@ class FluxWrapper(BaseWrapper):
         self.compression_factor = compression_factor
         self.min_image_shape = 256  # min image resolution: 256x256
         self.max_image_shape = 1360  # max image resolution: 1344x1344
-        self.min_latent_shape = 2 * math.ceil(self.min_image_shape / (self.compression_factor * 2))
-        self.max_latent_shape = 2 * math.ceil(self.max_image_shape / (self.compression_factor * 2))
+        self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
+        self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
         self.build_strongly_typed = build_strongly_typed
 
         # set proper dtype
@@ -38,7 +38,7 @@ class FluxWrapper(BaseWrapper):
         return ["img", "img_ids", "txt", "txt_ids", "y", "timesteps", "guidance"]
 
     def get_output_names(self):
-        return ["img"]
+        return ["latent"]
 
     def get_dynamic_axes(self):
         dynamic_axes = {
@@ -56,8 +56,8 @@ class FluxWrapper(BaseWrapper):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height = 2 * math.ceil(image_height / (2 * self.compression_factor))
-        latent_width = 2 * math.ceil(image_width / (2 * self.compression_factor))
+        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
+        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
 
         assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
