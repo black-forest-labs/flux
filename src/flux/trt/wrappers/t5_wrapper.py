@@ -1,6 +1,6 @@
 import torch
 from flux.modules.conditioner import HFEmbedder
-from .base_wrapper import BaseWrapper, Optimizer
+from .base_wrapper import BaseWrapper
 
 
 class T5Wrapper(BaseWrapper):
