@@ -221,7 +221,7 @@ class BaseWrapper(ABC):
         else:
             self.model = self.model.to(dtype=torch.float32)
 
-        self.model = self.model.eval()
+        self.model = self.model.eval().requires_grad_(False)
 
     @abstractmethod
     def get_sample_input(
