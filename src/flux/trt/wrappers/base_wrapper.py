@@ -209,7 +209,7 @@ class BaseWrapper(ABC):
 
         assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
 
-    def set_model_to_dtype(self):
+    def prepare_model(self):
         if self.fp16:
             self.model = self.model.to(dtype=torch.float16)
         elif self.tf32:
@@ -220,6 +220,8 @@ class BaseWrapper(ABC):
             self.model = self.model.to(dtype=torch.bfloat16)
         else:
             self.model = self.model.to(dtype=torch.float32)
+
+        self.model = self.model.eval()
 
     @abstractmethod
     def get_sample_input(

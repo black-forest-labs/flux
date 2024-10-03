@@ -32,7 +32,7 @@ class FluxWrapper(BaseWrapper):
         self.build_strongly_typed = build_strongly_typed
 
         # set proper dtype
-        self.set_model_to_dtype()
+        self.prepare_model()
 
     def get_input_names(self):
         return ["img", "img_ids", "txt", "txt_ids", "y", "timesteps", "guidance"]
