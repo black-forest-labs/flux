@@ -1,7 +1,22 @@
 import torch
+from transformers import T5EncoderModel
 from flux.modules.conditioner import HFEmbedder
 from .base_wrapper import BaseWrapper
 
+
+class ExportT5EncoderModel(torch.nn.Module):
+    def __init__(self, t5_encoder_model: T5EncoderModel):
+        super().__init__()
+        self.t5_encoder_model = t5_encoder_model
+
+    def forward(self, input_ids, *args):
+        outputs = self.t5_encoder_model.forward(
+            input_ids=input_ids,
+            attention_mask=None,
+            output_hidden_states=False,
+        )
+        text_embeddings = outputs["last_hidden_state"]
+        return text_embeddings
 
 class T5Wrapper(BaseWrapper):
     def __init__(
@@ -13,17 +28,16 @@ class T5Wrapper(BaseWrapper):
         max_batch=16,
         verbose=True,
     ):
+        self.text_maxlen = model.max_length
+        exp_model = ExportT5EncoderModel(t5_encoder_model=model.hf_module)
         super().__init__(
-            model=model,
+            model=exp_model,
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
             verbose=verbose,
         )
-
-        self.text_maxlen = self.model.max_length
-        self.hidden_layer_offset = -1
 
         # set proper dtype
         self.prepare_model()
@@ -64,4 +78,4 @@ class T5Wrapper(BaseWrapper):
         )
 
     def get_model(self) -> torch.nn.Module:
-        return self.model.hf_module
+        return self.model
