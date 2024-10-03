@@ -33,7 +33,7 @@ class CLIPWrapper(BaseWrapper):
             self.extra_output_names = ["hidden_states"]
 
         # set proper dtype
-        self.set_model_to_dtype()
+        self.prepare_model()
 
     def get_input_names(self):
         return ["input_ids"]

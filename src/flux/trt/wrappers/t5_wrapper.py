@@ -26,7 +26,7 @@ class T5Wrapper(BaseWrapper):
         self.hidden_layer_offset = -1
 
         # set proper dtype
-        self.set_model_to_dtype()
+        self.prepare_model()
 
     def get_input_names(self):
         return ["input_ids"]

@@ -32,7 +32,7 @@ class AEWrapper(BaseWrapper):
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
 
         # set proper dtype
-        self.set_model_to_dtype()
+        self.prepare_model()
 
     def get_input_names(self):
         return ["latent"]
