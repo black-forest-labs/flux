@@ -35,7 +35,7 @@ class FluxWrapper(BaseWrapper):
         self.prepare_model()
 
     def get_input_names(self):
-        return ["img", "img_ids", "txt", "txt_ids", "y", "timesteps", "guidance"]
+        return ["img", "img_ids", "txt", "txt_ids", "timesteps", "y", "guidance"]
 
     def get_output_names(self):
         return ["latent"]
@@ -46,8 +46,8 @@ class FluxWrapper(BaseWrapper):
             "img_ids": {0: "B", 1: "latent_dim"},
             "txt": {0: "B"},
             "txt_ids": {0: "B"},
-            "y": {0: "B"},
             "timesteps": {0: "B"},
+            "y": {0: "B"},
             "guidance": {0: "B"},
         }
         return dynamic_axes
