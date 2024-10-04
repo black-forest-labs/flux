@@ -108,6 +108,3 @@ class FluxWrapper(BaseWrapper):
             torch.randn(batch_size, self.model.params.vec_in_dim, dtype=dtype, device=self.device),
             # torch.tensor(data=[3.5] * batch_size, dtype=dtype, device=self.device),
         )
-
-    def get_model(self) -> torch.nn.Module:
-        return self.model
