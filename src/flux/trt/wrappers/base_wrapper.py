@@ -249,9 +249,8 @@ class BaseWrapper(ABC):
     def check_dims(self, *args) -> None | tuple[int, int]:
         pass
 
-    @abstractmethod
     def get_model(self) -> torch.nn.Module:
-        pass
+        return self.model
 
     # Helper utility for ONNX export
     def export_onnx(

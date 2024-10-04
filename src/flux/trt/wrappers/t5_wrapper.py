@@ -80,9 +80,6 @@ class T5Wrapper(BaseWrapper):
             device=self.device,
         )
 
-    def get_model(self) -> torch.nn.Module:
-        return self.model
-
     def optimize(self, onnx_graph, return_onnx=True, *args, **kwargs):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info(self.name + ": original")

@@ -18,6 +18,7 @@ class ExportCLIPTextModel(torch.nn.Module):
         text_embeddings = outputs["pooler_output"]
         return text_embeddings
 
+
 class CLIPWrapper(BaseWrapper):
     def __init__(
         self,
@@ -75,9 +76,6 @@ class CLIPWrapper(BaseWrapper):
             dtype=torch.int32,
             device=self.device,
         )
-
-    def get_model(self) -> torch.nn.Module:
-        return self.model
 
     def optimize(self, onnx_graph, return_onnx=True):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
