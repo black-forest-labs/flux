@@ -72,14 +72,18 @@ class AEWrapper(BaseWrapper):
         )
         dtype = torch.float16 if self.fp16 else torch.float32
 
-        return torch.randn(
-            batch_size,
-            self.model.params.z_channels,
-            latent_height,
-            latent_width,
-            dtype=dtype,
-            device=self.device,
-        ) * 0.002
+        return (
+            torch.randn(
+                batch_size,
+                self.model.params.z_channels,
+                latent_height,
+                latent_width,
+                dtype=dtype,
+                device=self.device,
+            )
+            * 0.002
+        )
+
     def get_model(self) -> torch.nn.Module:
         self.model.forward = self.model.decode
         return self.model
