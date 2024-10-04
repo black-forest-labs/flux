@@ -1,7 +1,10 @@
 import torch
+import onnx_graphsurgeon as gs
+
 from transformers import T5EncoderModel
 from flux.modules.conditioner import HFEmbedder
-from .base_wrapper import BaseWrapper
+
+from .base_wrapper import BaseWrapper, Optimizer
 
 
 class ExportT5EncoderModel(torch.nn.Module):
@@ -79,3 +82,22 @@ class T5Wrapper(BaseWrapper):
 
     def get_model(self) -> torch.nn.Module:
         return self.model
+
+    def optimize(self, onnx_graph, return_onnx=True, *args, **kwargs):
+        opt = Optimizer(onnx_graph, verbose=self.verbose)
+        opt.info(self.name + ": original")
+        if kwargs.get("modify_fp8_graph", False):
+            opt.modify_fp8_graph()
+            opt.info(self.name + ": modify fp8 graph")
+        else:
+            opt.fold_constants()
+            opt.info(self.name + ": fold constants")
+            opt.infer_shapes()
+            opt.info(self.name + ": shape inference")
+            if kwargs.get("fuse_mha_qkv_int8", False):
+                opt.fuse_mha_qkv_int8_sq()
+                opt.info(self.name + ": fuse QKV nodes")
+
+        onnx_opt_graph = gs.export_onnx(opt.graph)
+        opt.info(self.name + ": finished")
+        return onnx_opt_graph
