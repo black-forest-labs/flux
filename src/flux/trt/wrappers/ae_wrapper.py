@@ -79,7 +79,7 @@ class AEWrapper(BaseWrapper):
             latent_width,
             dtype=dtype,
             device=self.device,
-        )
+        ) * 0.002
     def get_model(self) -> torch.nn.Module:
         self.model.forward = self.model.decode
         return self.model
