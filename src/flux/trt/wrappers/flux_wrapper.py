@@ -35,7 +35,15 @@ class FluxWrapper(BaseWrapper):
         self.prepare_model()
 
     def get_input_names(self):
-        return ["img", "img_ids", "txt", "txt_ids", "timesteps", "y", "guidance"]
+        return [
+            "img",
+            "img_ids",
+            "txt",
+            "txt_ids",
+            "timesteps",
+            "y",
+            # "guidance",
+        ]
 
     def get_output_names(self):
         return ["latent"]
@@ -48,7 +56,8 @@ class FluxWrapper(BaseWrapper):
             "txt_ids": {0: "B"},
             "timesteps": {0: "B"},
             "y": {0: "B"},
-            "guidance": {0: "B"},
+            # "guidance": {0: "B"},
+            "latent": {0: "B", 1: "latent_dim"},
         }
         return dynamic_axes
 
@@ -84,7 +93,8 @@ class FluxWrapper(BaseWrapper):
                 self.model.params.in_channels,
                 dtype=dtype,
                 device=self.device,
-            ),
+            )
+            * 0.002,
             torch.zeros(
                 batch_size,
                 (latent_height // 2) * (latent_width // 2),
@@ -92,11 +102,11 @@ class FluxWrapper(BaseWrapper):
                 dtype=torch.float32,
                 device=self.device,
             ),
-            torch.randn(batch_size, 256, self.model.params.context_in_dim, dtype=dtype, device=self.device),
+            torch.randn(batch_size, 256, self.model.params.context_in_dim, dtype=dtype, device=self.device) * 0.002,
             torch.zeros(batch_size, 256, 3, dtype=torch.float32, device=self.device),
             torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
             torch.randn(batch_size, self.model.params.vec_in_dim, dtype=dtype, device=self.device),
-            torch.tensor(data=[3.5] * batch_size, dtype=dtype, device=self.device),
+            # torch.tensor(data=[3.5] * batch_size, dtype=dtype, device=self.device),
         )
 
     def get_model(self) -> torch.nn.Module:
