@@ -58,6 +58,79 @@ class AEWrapper(BaseWrapper):
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
         return (latent_height, latent_width)
 
+    def get_minmax_dims(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: int,
+        static_shape: int,
+    ) -> tuple:
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+        latent_height = image_height // self.compression_factor
+        latent_width = image_width // self.compression_factor
+        min_image_height = image_height if static_shape else self.min_image_shape
+        max_image_height = image_height if static_shape else self.max_image_shape
+        min_image_width = image_width if static_shape else self.min_image_shape
+        max_image_width = image_width if static_shape else self.max_image_shape
+        min_latent_height = latent_height if static_shape else self.min_latent_shape
+        max_latent_height = latent_height if static_shape else self.max_latent_shape
+        min_latent_width = latent_width if static_shape else self.min_latent_shape
+        max_latent_width = latent_width if static_shape else self.max_latent_shape
+        return (
+            min_batch,
+            max_batch,
+            min_image_height,
+            max_image_height,
+            min_image_width,
+            max_image_width,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        )
+
+    def get_input_profile(
+        self,
+        batch_size,
+        image_height,
+        image_width,
+        static_batch=False,
+        static_shape=False,
+    ):
+        latent_height, latent_width = self.check_dims(
+            batch_size=batch_size,
+            image_height=image_height,
+            image_width=image_width,
+        )
+
+        (
+            min_batch,
+            max_batch,
+            _,
+            _,
+            _,
+            _,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        ) = self.get_minmax_dims(
+            batch_size,
+            image_height,
+            image_width,
+            static_batch,
+            static_shape,
+        )
+        return {
+            "latent": [
+                (min_batch, self.model.params.z_channels, min_latent_height, min_latent_width),
+                (batch_size, self.model.params.z_channels, latent_height, latent_width),
+                (max_batch, self.model.params.z_channels, max_latent_height, max_latent_width),
+            ]
+        }
+
     def get_sample_input(
         self,
         batch_size: int,
@@ -72,16 +145,13 @@ class AEWrapper(BaseWrapper):
         )
         dtype = torch.float16 if self.fp16 else torch.float32
 
-        return (
-            torch.randn(
-                batch_size,
-                self.model.params.z_channels,
-                latent_height,
-                latent_width,
-                dtype=dtype,
-                device=self.device,
-            )
-            * 0.002
+        return torch.randn(
+            batch_size,
+            self.model.params.z_channels,
+            latent_height,
+            latent_width,
+            dtype=dtype,
+            device=self.device,
         )
 
     def get_model(self) -> torch.nn.Module:
