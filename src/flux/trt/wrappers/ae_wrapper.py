@@ -136,7 +136,6 @@ class AEWrapper(BaseWrapper):
         batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
-        static_shape: bool,
     ) -> torch.Tensor:
         latent_height, latent_width = self.check_dims(
             batch_size=batch_size,

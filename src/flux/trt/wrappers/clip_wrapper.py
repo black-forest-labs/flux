@@ -67,7 +67,6 @@ class CLIPWrapper(BaseWrapper):
         batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
-        static_shape: bool,
     ) -> torch.Tensor:
         self.check_dims(batch_size)
         return torch.zeros(
