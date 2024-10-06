@@ -238,6 +238,17 @@ class BaseWrapper(ABC):
         pass
 
     @abstractmethod
+    def get_input_profile(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: bool = False,
+        static_shape: bool = False,
+    ) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
     def get_output_names(self) -> list[str]:
         pass
 
@@ -251,6 +262,12 @@ class BaseWrapper(ABC):
 
     def get_model(self) -> torch.nn.Module:
         return self.model
+
+    @abstractmethod
+    def get_minmax_dims(
+        self, batch_size: int, image_height: int, image_width: int, static_batch: int, static_shape: int
+    ) -> tuple:
+        pass
 
     # Helper utility for ONNX export
     def export_onnx(
