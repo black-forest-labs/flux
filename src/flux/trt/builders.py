@@ -6,7 +6,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-from flux.trt.wrappers import BaseWrapper, AEWrapper, CLIPWrapper, FluxWrapper, T5Wrapper
+from flux.trt.wrappers import BaseWrapper, AEWrapper, CLIPWrapper, FluxWrapper, T5Wrapper, Engine
 
 
 class TRTBuilder:
@@ -37,8 +37,6 @@ class TRTBuilder:
                 tf32=tf32,
                 bf16=bf16,
                 verbose=verbose,
-                keep_pooled_output=kwargs.get("keep_pooled_output", False),
-                output_hidden_states=kwargs.get("output_hidden_states", False),
             ),
             "transformer": FluxWrapper(
                 flux_model,
@@ -48,7 +46,6 @@ class TRTBuilder:
                 bf16=bf16,
                 verbose=verbose,
                 compression_factor=kwargs.get("compression_factor", 8),
-                build_strongly_typed=kwargs.get("build_strongly_typed", False),
             ),
             "t5": T5Wrapper(
                 t5_model,
@@ -68,6 +65,7 @@ class TRTBuilder:
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
         }
+        self.verbose = verbose
 
         assert all(
             stage in self.models for stage in self.stages
@@ -202,6 +200,52 @@ class TRTBuilder:
                 static_shape=static_shape,
             )
 
+    def _build_engine(
+        self,
+        obj: BaseWrapper,
+        engine: Engine,
+        model_config: dict[str, Any],
+        opt_batch_size: int,
+        opt_image_height: int,
+        opt_image_width: int,
+        optimization_level: int,
+        static_batch: bool,
+        static_shape: bool,
+        enable_all_tactics: bool,
+        timing_cache,
+    ):
+        update_output_names = obj.get_output_names() + obj.extra_output_names if obj.extra_output_names else None
+        fp16amp = False if getattr(obj, "build_strongly_typed", False) else obj.fp16
+        tf32amp = obj.tf32
+        bf16amp = False if getattr(obj, "build_strongly_typed", False) else obj.bf16
+        strongly_typed = True if getattr(obj, "build_strongly_typed", False) else False
+
+        fp16amp = obj.fp16
+        tf32amp = obj.tf32
+        bf16amp = obj.bf16
+        strongly_typed = False
+        extra_build_args = {"verbose": self.verbose}
+        extra_build_args["builder_optimization_level"] = optimization_level
+
+        engine.build(
+            model_config["onnx_opt_path"],
+            strongly_typed=strongly_typed,
+            fp16=fp16amp,
+            tf32=tf32amp,
+            bf16=bf16amp,
+            input_profile=obj.get_input_profile(
+                opt_batch_size,
+                opt_image_height,
+                opt_image_width,
+                static_batch=static_batch,
+                static_shape=static_shape,
+            ),
+            enable_all_tactics=enable_all_tactics,
+            timing_cache=timing_cache,
+            update_output_names=update_output_names,
+            **extra_build_args,
+        )
+
     def load_engines(
         self,
         engine_dir: str,
@@ -249,3 +293,24 @@ class TRTBuilder:
                 calibration_size=calibration_size,
                 calib_batch_size=calib_batch_size,
             )
+
+        # Build TensorRT engines
+        for model_name, obj in self.models.items():
+
+            model_config = model_configs[model_name]
+            engine = Engine(model_config["engine_path"])
+            if not os.path.exists(model_config["engine_path"]):
+                self._build_engine(
+                    obj,
+                    engine,
+                    model_config,
+                    opt_batch_size,
+                    opt_image_height,
+                    opt_image_width,
+                    optimization_level,
+                    static_batch,
+                    static_shape,
+                    enable_all_tactics,
+                    timing_cache,
+                )
+            self.engine[model_name] = engine
