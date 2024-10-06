@@ -229,7 +229,6 @@ class BaseWrapper(ABC):
         batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
-        static_shape: bool,
     ) -> tuple | torch.Tensor:
         pass
 
@@ -277,7 +276,6 @@ class BaseWrapper(ABC):
         onnx_opset: int,
         opt_image_height: int,
         opt_image_width: int,
-        static_shape: bool = False,
     ):
         onnx_opt_graph = None
         # Export optimized ONNX model (if missing)
@@ -286,7 +284,7 @@ class BaseWrapper(ABC):
                 print(f"[I] Exporting ONNX model: {onnx_path}")
 
                 def export_onnx(model: torch.nn.Module):
-                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width, static_shape)
+                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width,)
                     torch.onnx.export(
                         model,
                         inputs,
