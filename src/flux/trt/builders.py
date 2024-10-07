@@ -65,6 +65,7 @@ class TRTBuilder:
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
         }
+        self.engines = {}
         self.verbose = verbose
 
         assert all(
@@ -178,7 +179,6 @@ class TRTBuilder:
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
-        static_shape: bool,
         onnx_opset: int,
         quantization_level: float,
         quantization_percentile: float,
@@ -197,7 +197,6 @@ class TRTBuilder:
                 onnx_opset,
                 opt_image_height,
                 opt_image_width,
-                static_shape=static_shape,
             )
 
     def _build_engine(
@@ -209,8 +208,6 @@ class TRTBuilder:
         opt_image_height: int,
         opt_image_width: int,
         optimization_level: int,
-        static_batch: bool,
-        static_shape: bool,
         enable_all_tactics: bool,
         timing_cache,
     ):
@@ -220,10 +217,6 @@ class TRTBuilder:
         bf16amp = False if getattr(obj, "build_strongly_typed", False) else obj.bf16
         strongly_typed = True if getattr(obj, "build_strongly_typed", False) else False
 
-        fp16amp = obj.fp16
-        tf32amp = obj.tf32
-        bf16amp = obj.bf16
-        strongly_typed = False
         extra_build_args = {"verbose": self.verbose}
         extra_build_args["builder_optimization_level"] = optimization_level
 
@@ -234,11 +227,9 @@ class TRTBuilder:
             tf32=tf32amp,
             bf16=bf16amp,
             input_profile=obj.get_input_profile(
-                opt_batch_size,
-                opt_image_height,
-                opt_image_width,
-                static_batch=static_batch,
-                static_shape=static_shape,
+                batch_size=opt_batch_size,
+                image_height=opt_image_height,
+                image_width=opt_image_width,
             ),
             enable_all_tactics=enable_all_tactics,
             timing_cache=timing_cache,
@@ -255,9 +246,6 @@ class TRTBuilder:
         opt_image_height: int,
         opt_image_width: int,
         optimization_level=3,
-        static_batch=False,
-        static_shape=True,
-        enable_refit=False,
         enable_all_tactics=False,
         timing_cache=None,
         int8=False,
@@ -285,7 +273,6 @@ class TRTBuilder:
                 model_config=model_configs[model_name],
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
-                static_shape=static_shape,
                 onnx_opset=onnx_opset,
                 quantization_level=quantization_level,
                 quantization_percentile=quantization_percentile,
@@ -293,6 +280,9 @@ class TRTBuilder:
                 calibration_size=calibration_size,
                 calib_batch_size=calib_batch_size,
             )
+
+        # Reclaim GPU memory from torch cache
+        torch.cuda.empty_cache()
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
@@ -308,9 +298,10 @@ class TRTBuilder:
                     opt_image_height,
                     opt_image_width,
                     optimization_level,
-                    static_batch,
-                    static_shape,
                     enable_all_tactics,
                     timing_cache,
                 )
-            self.engine[model_name] = engine
+            self.engines[model_name] = engine
+
+        # Reclaim GPU memory from torch cache
+        torch.cuda.empty_cache()
