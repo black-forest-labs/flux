@@ -3,6 +3,7 @@ import os
 import onnx
 import numpy as np
 
+from typing import Any
 from collections import OrderedDict
 from cuda import cudart
 from enum import Enum, auto
@@ -84,7 +85,7 @@ class Engine:
         tf32=False,
         int8=False,
         fp8=False,
-        input_profile=None,
+        input_profile: dict[str, Any] | None = None,
         enable_refit=False,
         enable_all_tactics=False,
         timing_cache=None,
