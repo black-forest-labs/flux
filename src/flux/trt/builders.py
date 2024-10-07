@@ -73,6 +73,7 @@ class TRTBuilder:
         # assert all(
         #     stage in self.models for stage in self.stages
         # ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
+        assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
     def _create_directories(engine_dir: str, onnx_dir: str):
@@ -293,7 +294,6 @@ class TRTBuilder:
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
-
             model_config = model_configs[model_name]
             engine = Engine(model_config["engine_path"])
             if not os.path.exists(model_config["engine_path"]):
