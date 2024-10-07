@@ -31,6 +31,12 @@ Mystic:
 - https://www.mystic.ai/black-forest-labs/flux1-dev
 - https://www.mystic.ai/black-forest-labs/flux1-schnell
 
+Together:
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell-Free (ends December 31, 2024)
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1.1-pro
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-pro
+
 ## Local installation
 
 ```bash
