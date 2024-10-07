@@ -22,6 +22,7 @@ class TRTBuilder:
         t5_model: HFEmbedder,
         clip_model: HFEmbedder,
         ae_model: AutoEncoder,
+        device: str | torch.device,
         max_batch=16,
         fp16=True,
         tf32=False,
@@ -29,32 +30,33 @@ class TRTBuilder:
         verbose=True,
         **kwargs,
     ):
+        self.device = device
         self.models = {
-            "clip": CLIPWrapper(
-                clip_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-            ),
-            "transformer": FluxWrapper(
-                flux_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-                compression_factor=kwargs.get("compression_factor", 8),
-            ),
-            "t5": T5Wrapper(
-                t5_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-            ),
+            # "clip": CLIPWrapper(
+            #     clip_model,
+            #     max_batch=max_batch,
+            #     fp16=fp16,
+            #     tf32=tf32,
+            #     bf16=bf16,
+            #     verbose=verbose,
+            # ),
+            # "transformer": FluxWrapper(
+            #     flux_model,
+            #     max_batch=max_batch,
+            #     fp16=fp16,
+            #     tf32=tf32,
+            #     bf16=bf16,
+            #     verbose=verbose,
+            #     compression_factor=kwargs.get("compression_factor", 8),
+            # ),
+            # "t5": T5Wrapper(
+            #     t5_model,
+            #     max_batch=max_batch,
+            #     fp16=fp16,
+            #     tf32=tf32,
+            #     bf16=bf16,
+            #     verbose=verbose,
+            # ),
             "ae": AEWrapper(
                 ae_model,
                 max_batch=max_batch,
@@ -68,9 +70,9 @@ class TRTBuilder:
         self.engines = {}
         self.verbose = verbose
 
-        assert all(
-            stage in self.models for stage in self.stages
-        ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
+        # assert all(
+        #     stage in self.models for stage in self.stages
+        # ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
 
     @staticmethod
     def _create_directories(engine_dir: str, onnx_dir: str):
@@ -190,6 +192,8 @@ class TRTBuilder:
             model_config["onnx_opt_path"]
         )
 
+        obj.model = obj.model.to(self.device)
+
         if do_export_onnx:
             obj.export_onnx(
                 model_config["onnx_path"],
@@ -198,6 +202,9 @@ class TRTBuilder:
                 opt_image_height,
                 opt_image_width,
             )
+
+        obj.model = obj.model.to("cpu")
+        torch.cuda.empty_cache()
 
     def _build_engine(
         self,
