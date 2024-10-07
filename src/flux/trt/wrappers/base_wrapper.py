@@ -242,8 +242,6 @@ class BaseWrapper(ABC):
         batch_size: int,
         image_height: int,
         image_width: int,
-        static_batch: bool = False,
-        static_shape: bool = False,
     ) -> dict[str, Any]:
         pass
 
@@ -262,12 +260,6 @@ class BaseWrapper(ABC):
     def get_model(self) -> torch.nn.Module:
         return self.model
 
-    @abstractmethod
-    def get_minmax_dims(
-        self, batch_size: int, image_height: int, image_width: int, static_batch: int, static_shape: int
-    ) -> tuple:
-        pass
-
     # Helper utility for ONNX export
     def export_onnx(
         self,
@@ -284,7 +276,11 @@ class BaseWrapper(ABC):
                 print(f"[I] Exporting ONNX model: {onnx_path}")
 
                 def export_onnx(model: torch.nn.Module):
-                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width,)
+                    inputs = self.get_sample_input(
+                        self.min_batch,
+                        opt_image_height,
+                        opt_image_width,
+                    )
                     torch.onnx.export(
                         model,
                         inputs,
