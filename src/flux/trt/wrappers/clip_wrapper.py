@@ -76,6 +76,21 @@ class CLIPWrapper(BaseWrapper):
             device=self.device,
         )
 
+    def get_input_profile(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ):
+        self.check_dims(batch_size)
+        return {
+            "input_ids": [
+                (self.min_batch, self.text_maxlen),
+                (batch_size, self.text_maxlen),
+                (self.max_batch, self.text_maxlen),
+            ]
+        }
+
     def optimize(self, onnx_graph, return_onnx=True):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info(self.name + ": original")
