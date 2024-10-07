@@ -10,11 +10,19 @@ from fire import Fire
 from PIL import ExifTags, Image
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import (configs, embed_watermark, load_ae, load_clip,
-                       load_flow_model, load_t5)
+from flux.util import (
+    configs,
+    embed_watermark,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+)
 from transformers import pipeline
 from flux.trt import TRTBuilder
+
 NSFW_THRESHOLD = 0.85
+
 
 @dataclass
 class SamplingOptions:
@@ -27,7 +35,9 @@ class SamplingOptions:
 
 
 def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
-    user_question = "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    user_question = (
+        "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    )
     usage = (
         "Usage: Either write your prompt directly, leave this field empty "
         "to repeat the prompt or write a command starting with a slash:\n"
@@ -133,7 +143,9 @@ def main(
         trt: use TensorRT backend for optimized inference
         kwargs: additional arguments for TensorRT support
     """
-    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
+    nsfw_classifier = pipeline(
+        "image-classification", model="Falconsai/nsfw_image_detection", device=device
+    )
 
     if name not in configs:
         available = ", ".join(configs.keys())
@@ -152,7 +164,11 @@ def main(
         os.makedirs(output_dir)
         idx = 0
     else:
-        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
+        fns = [
+            fn
+            for fn in iglob(output_name.format(idx="*"))
+            if re.search(r"img_[0-9]+\.jpg$", fn)
+        ]
         if len(fns) > 0:
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
@@ -165,11 +181,19 @@ def main(
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
     if trt:
+        # offload to CPU to save memory
+        ae = ae.cpu()
+        model = model.cpu()
+        clip = clip.cpu()
+        t5 = t5.cpu()
+        torch.cuda.empty_cache()
+
         builder = TRTBuilder(
             flux_model=model,
             t5_model=t5,
             clip_model=clip,
             ae_model=ae,
+            device=torch_device,
         )
         builder.load_engines(
             "/workspace/data/flux/engine",
@@ -214,7 +238,9 @@ def main(
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
         inp = prepare(t5, clip, x, prompt=opts.prompt)
-        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
+        timesteps = get_schedule(
+            opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell")
+        )
 
         # offload TEs to CPU, load model to gpu
         if offload:
@@ -248,7 +274,9 @@ def main(
         x = rearrange(x[0], "c h w -> h w c")
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][0]
+        nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][
+            0
+        ]
 
         if nsfw_score < NSFW_THRESHOLD:
             exif_data = Image.Exif()
