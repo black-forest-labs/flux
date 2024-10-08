@@ -7,7 +7,7 @@ This repo contains minimal inference code to run text-to-image and image-to-imag
 
 ### Inference partners
 
-We are happy to partner with [Replicate](https://replicate.com/), [FAL](https://fal.ai/) and [Mystic](https://www.mystic.ai). You can sample our models using their services.
+We are happy to partner with [Replicate](https://replicate.com/), [FAL](https://fal.ai/), [Mystic](https://www.mystic.ai), and [Together](https://www.together.ai/). You can sample our models using their services.
 Below we list relevant links.
 
 Replicate:
