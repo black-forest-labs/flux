@@ -100,7 +100,7 @@ class ImageRequest:
 
             if name == "flux.1-dev":
                 if interval is not None:
-                    raise ValueError(f"Interval is not supported for flux.1-dev")
+                    raise ValueError("Interval is not supported for flux.1-dev")
             if name == "flux.1.1-pro":
                 if (
                     interval is not None
