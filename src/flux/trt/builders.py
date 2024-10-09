@@ -60,9 +60,6 @@ class TRTBuilder:
             "ae": AEWrapper(
                 ae_model,
                 max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
                 verbose=verbose,
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
@@ -73,7 +70,7 @@ class TRTBuilder:
         # assert all(
         #     stage in self.models for stage in self.stages
         # ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
-        assert torch.cuda.is_available(), "No cuda device available"
+        # assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
     def _create_directories(engine_dir: str, onnx_dir: str):
@@ -197,11 +194,11 @@ class TRTBuilder:
 
         if do_export_onnx:
             obj.export_onnx(
-                model_config["onnx_path"],
-                model_config["onnx_opt_path"],
-                onnx_opset,
-                opt_image_height,
-                opt_image_width,
+                onnx_path=model_config["onnx_path"],
+                onnx_opt_path=model_config["onnx_opt_path"],
+                onnx_opset=onnx_opset,
+                opt_image_height=opt_image_height,
+                opt_image_width=opt_image_width,
             )
 
         obj.model = obj.model.to("cpu")
