@@ -1,25 +1,8 @@
 import torch
 import onnx_graphsurgeon as gs
 
-from transformers import T5EncoderModel
 from flux.modules.conditioner import HFEmbedder
-
-from .base_wrapper import BaseWrapper, Optimizer
-
-
-class ExportT5EncoderModel(torch.nn.Module):
-    def __init__(self, t5_encoder_model: T5EncoderModel):
-        super().__init__()
-        self.t5_encoder_model = t5_encoder_model
-
-    def forward(self, input_ids, *args):
-        outputs = self.t5_encoder_model.forward(
-            input_ids=input_ids,
-            attention_mask=None,
-            output_hidden_states=False,
-        )
-        text_embeddings = outputs["last_hidden_state"]
-        return text_embeddings
+from .base_wrapper import BaseWrapper, Optimizer, TransformersModelWrapper
 
 
 class T5Wrapper(BaseWrapper):
@@ -32,8 +15,7 @@ class T5Wrapper(BaseWrapper):
         max_batch=16,
         verbose=True,
     ):
-        self.text_maxlen = model.max_length
-        exp_model = ExportT5EncoderModel(t5_encoder_model=model.hf_module)
+        exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
         super().__init__(
             model=exp_model,
             fp16=fp16,
@@ -75,7 +57,7 @@ class T5Wrapper(BaseWrapper):
         self.check_dims(batch_size)
         return torch.zeros(
             batch_size,
-            self.text_maxlen,
+            self.model.text_maxlen,
             dtype=torch.int32,
             device=self.device,
         )
@@ -89,9 +71,9 @@ class T5Wrapper(BaseWrapper):
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.text_maxlen),
-                (batch_size, self.text_maxlen),
-                (self.max_batch, self.text_maxlen),
+                (self.min_batch, self.model.text_maxlen),
+                (batch_size, self.model.text_maxlen),
+                (self.max_batch, self.model.text_maxlen),
             ]
         }
 
