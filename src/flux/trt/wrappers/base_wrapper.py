@@ -195,7 +195,6 @@ class BaseWrapper(ABC):
     ):
         self.model = model
         self.name = model.__class__.__name__
-        self.device = next(model.parameters()).device
         self.verbose = verbose
         self.do_constant_folding = do_constant_folding
 
@@ -208,6 +207,10 @@ class BaseWrapper(ABC):
         self.extra_output_names = []
 
         assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
+
+    @property
+    def device(self):
+        return next(self.model.parameters()).device
 
     def prepare_model(self):
         if self.fp16:
@@ -243,6 +246,15 @@ class BaseWrapper(ABC):
         image_height: int,
         image_width: int,
     ) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ) -> dict[str, tuple]:
         pass
 
     @abstractmethod
