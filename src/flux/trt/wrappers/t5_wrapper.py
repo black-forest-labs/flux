@@ -21,6 +21,7 @@ class ExportT5EncoderModel(torch.nn.Module):
         text_embeddings = outputs["last_hidden_state"]
         return text_embeddings
 
+
 class T5Wrapper(BaseWrapper):
     def __init__(
         self,
@@ -78,6 +79,21 @@ class T5Wrapper(BaseWrapper):
             dtype=torch.int32,
             device=self.device,
         )
+
+    def get_input_profile(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ):
+        self.check_dims(batch_size)
+        return {
+            "input_ids": [
+                (self.min_batch, self.text_maxlen),
+                (batch_size, self.text_maxlen),
+                (self.max_batch, self.text_maxlen),
+            ]
+        }
 
     def optimize(self, onnx_graph, return_onnx=True, *args, **kwargs):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
