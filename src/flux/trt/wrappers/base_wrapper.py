@@ -6,10 +6,11 @@ from typing import Any
 
 import torch
 from torch import nn
+from transformers import PreTrainedModel
+
 import onnx
 import onnx_graphsurgeon as gs
 from onnx import shape_inference
-
 from onnxconverter_common.float16 import convert_float_to_float16
 from polygraphy.backend.onnx.loader import fold_constants
 
@@ -20,6 +21,26 @@ from .utils_modelopt import (
     convert_fp16_io,
     cast_fp8_mha_io,
 )
+
+from flux.modules.conditioner import HFEmbedder
+
+
+class TransformersModelWrapper(torch.nn.Module):
+    def __init__(self, model: HFEmbedder, output_name: str):
+        super().__init__()
+        self.model: PreTrainedModel = model.hf_module
+        self.text_maxlen = model.max_length
+        self.hidden_size = model.hf_module.config.hidden_size
+        self.output_name = output_name
+
+    def forward(self, input_ids, *args):
+        outputs = self.model.forward(
+            input_ids=input_ids,
+            attention_mask=None,
+            output_hidden_states=False,
+        )
+        text_embeddings = outputs[self.output_name]
+        return text_embeddings
 
 
 class Optimizer:
