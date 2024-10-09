@@ -72,6 +72,46 @@ class FluxWrapper(BaseWrapper):
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
         return (latent_height, latent_width)
 
+    def get_input_profile(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ):
+        latent_height, latent_width = self.check_dims(
+            batch_size=batch_size,
+            image_height=image_height,
+            image_width=image_width,
+        )
+        return {
+            "img": [
+                (self.min_batch, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+                (batch_size, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+                (self.max_batch, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+            ],
+            "img_ids": [
+                (self.min_batch, (latent_height // 2) * (latent_width // 2), 3),
+                (batch_size, (latent_height // 2) * (latent_width // 2), 3),
+                (self.max_batch, (latent_height // 2) * (latent_width // 2), 3),
+            ],
+            "txt": [
+                (self.min_batch, 256, self.model.params.context_in_dim),
+                (batch_size, 256, self.model.params.context_in_dim),
+                (self.max_batch, 256, self.model.params.context_in_dim),
+            ],
+            "txt_ids": [
+                (self.min_batch, 256, 3),
+                (batch_size, 256, 3),
+                (self.max_batch, 256, 3),
+            ],
+            "timesteps": [(self.min_batch,), (batch_size,), (self.max_batch,)],
+            "y": [
+                (self.min_batch, self.model.params.vec_in_dim),
+                (batch_size, self.model.params.vec_in_dim),
+                (self.max_batch, self.model.params.vec_in_dim),
+            ],
+        }
+
     def get_sample_input(
         self,
         batch_size: int,
