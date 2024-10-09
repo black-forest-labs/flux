@@ -32,34 +32,35 @@ class TRTBuilder:
     ):
         self.device = device
         self.models = {
-            # "clip": CLIPWrapper(
-            #     clip_model,
-            #     max_batch=max_batch,
-            #     fp16=fp16,
-            #     tf32=tf32,
-            #     bf16=bf16,
-            #     verbose=verbose,
-            # ),
-            # "transformer": FluxWrapper(
-            #     flux_model,
-            #     max_batch=max_batch,
-            #     fp16=fp16,
-            #     tf32=tf32,
-            #     bf16=bf16,
-            #     verbose=verbose,
-            #     compression_factor=kwargs.get("compression_factor", 8),
-            # ),
-            # "t5": T5Wrapper(
-            #     t5_model,
-            #     max_batch=max_batch,
-            #     fp16=fp16,
-            #     tf32=tf32,
-            #     bf16=bf16,
-            #     verbose=verbose,
-            # ),
+            "clip": CLIPWrapper(
+                clip_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+            ),
+            "transformer": FluxWrapper(
+                flux_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+                compression_factor=kwargs.get("compression_factor", 8),
+            ),
+            "t5": T5Wrapper(
+                t5_model,
+                max_batch=max_batch,
+                fp16=fp16,
+                tf32=tf32,
+                bf16=bf16,
+                verbose=verbose,
+            ),
             "ae": AEWrapper(
                 ae_model,
                 max_batch=max_batch,
+                tf32=True,
                 verbose=verbose,
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
@@ -67,10 +68,10 @@ class TRTBuilder:
         self.engines = {}
         self.verbose = verbose
 
-        # assert all(
-        #     stage in self.models for stage in self.stages
-        # ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
-        # assert torch.cuda.is_available(), "No cuda device available"
+        assert all(
+            stage in self.models for stage in self.stages
+        ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
+        assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
     def _create_directories(engine_dir: str, onnx_dir: str):
