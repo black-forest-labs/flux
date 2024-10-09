@@ -1,23 +1,6 @@
 import torch
-from transformers import CLIPTextModel
+from .base_wrapper import BaseWrapper, Optimizer, TransformersModelWrapper
 from flux.modules.conditioner import HFEmbedder
-from .base_wrapper import BaseWrapper, Optimizer
-
-
-class ExportCLIPTextModel(torch.nn.Module):
-    def __init__(self, clip_text_model: CLIPTextModel):
-        super().__init__()
-        self.clip_text_model = clip_text_model
-
-    def forward(self, input_ids, *args):
-        outputs = self.clip_text_model.forward(
-            input_ids=input_ids,
-            attention_mask=None,
-            output_hidden_states=False,
-        )
-        text_embeddings = outputs["pooler_output"]
-        return text_embeddings
-
 
 class CLIPWrapper(BaseWrapper):
     def __init__(
@@ -29,8 +12,7 @@ class CLIPWrapper(BaseWrapper):
         max_batch=16,
         verbose=True,
     ):
-        self.text_maxlen = model.max_length
-        exp_model = ExportCLIPTextModel(clip_text_model=model.hf_module)
+        exp_model = TransformersModelWrapper(model=model, output_name="pooler_output")
         super().__init__(
             model=exp_model,
             fp16=fp16,
@@ -71,7 +53,7 @@ class CLIPWrapper(BaseWrapper):
         self.check_dims(batch_size)
         return torch.zeros(
             batch_size,
-            self.text_maxlen,
+            self.model.text_maxlen,
             dtype=torch.int32,
             device=self.device,
         )
