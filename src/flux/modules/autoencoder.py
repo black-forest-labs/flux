@@ -235,6 +235,9 @@ class Decoder(nn.Module):
         self.conv_out = nn.Conv2d(block_in, out_ch, kernel_size=3, stride=1, padding=1)
 
     def forward(self, z: Tensor) -> Tensor:
+        # get dtype for proper tracing
+        upscale_dtype = next(self.up.parameters()).dtype
+
         # z to block_in
         h = self.conv_in(z)
 
@@ -243,6 +246,8 @@ class Decoder(nn.Module):
         h = self.mid.attn_1(h)
         h = self.mid.block_2(h)
 
+        # cast to proper dtype
+        h = h.to(upscale_dtype)
         # upsampling
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(self.num_res_blocks + 1):
