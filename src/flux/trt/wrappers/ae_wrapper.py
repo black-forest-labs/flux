@@ -9,7 +9,7 @@ class AEWrapper(BaseWrapper):
         self,
         model: AutoEncoder,
         fp16=False,
-        tf32=False,
+        tf32=True,
         bf16=False,
         max_batch=16,
         verbose=True,
@@ -83,6 +83,22 @@ class AEWrapper(BaseWrapper):
             ]
         }
 
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ) -> dict[str, tuple]:
+        latent_height, latent_width = self.check_dims(
+            batch_size,
+            image_height,
+            image_width,
+        )
+        return {
+            "latent": (batch_size, self.model.params.z_channels, latent_height, latent_width),
+            "images": (batch_size, 3, image_height, image_width),
+        }
+
     def get_sample_input(
         self,
         batch_size: int,
@@ -94,14 +110,13 @@ class AEWrapper(BaseWrapper):
             image_height=opt_image_height,
             image_width=opt_image_width,
         )
-        dtype = torch.float16 if self.fp16 else torch.float32
 
         return torch.randn(
             batch_size,
             self.model.params.z_channels,
             latent_height,
             latent_width,
-            dtype=dtype,
+            dtype=torch.float32,
             device=self.device,
         )
 
