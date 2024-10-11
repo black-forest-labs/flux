@@ -112,6 +112,28 @@ class FluxWrapper(BaseWrapper):
             ],
         }
 
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ) -> dict[str, tuple]:
+        latent_height, latent_width = self.check_dims(
+            batch_size=batch_size,
+            image_height=image_height,
+            image_width=image_width,
+        )
+
+        return {
+            "img": (batch_size, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+            "img_ids": (batch_size, (latent_height // 2) * (latent_width // 2), 3),
+            "txt": (batch_size, 256, self.model.params.context_in_dim),
+            "txt_ids": (batch_size, 256, 3),
+            "timesteps": (batch_size,),
+            "y": (batch_size, self.model.params.vec_in_dim),
+            "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.model.out_channels),
+        }
+
     def get_sample_input(
         self,
         batch_size: int,
@@ -132,8 +154,7 @@ class FluxWrapper(BaseWrapper):
                 self.model.params.in_channels,
                 dtype=dtype,
                 device=self.device,
-            )
-            * 0.002,
+            ),
             torch.zeros(
                 batch_size,
                 (latent_height // 2) * (latent_width // 2),
