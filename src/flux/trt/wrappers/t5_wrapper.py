@@ -67,12 +67,11 @@ class T5Wrapper(BaseWrapper):
         opt_image_width: int,
     ) -> torch.Tensor:
         self.check_dims(batch_size)
-        return torch.zeros(
-            batch_size,
+        return torch.arange(
             self.model.text_maxlen,
             dtype=torch.int32,
             device=self.device,
-        )
+        ).repeat(batch_size, 1)
 
     def get_input_profile(
         self,
@@ -88,22 +87,3 @@ class T5Wrapper(BaseWrapper):
                 (self.max_batch, self.model.text_maxlen),
             ]
         }
-
-    def optimize(self, onnx_graph, return_onnx=True, *args, **kwargs):
-        opt = Optimizer(onnx_graph, verbose=self.verbose)
-        opt.info(self.name + ": original")
-        if kwargs.get("modify_fp8_graph", False):
-            opt.modify_fp8_graph()
-            opt.info(self.name + ": modify fp8 graph")
-        else:
-            opt.fold_constants()
-            opt.info(self.name + ": fold constants")
-            opt.infer_shapes()
-            opt.info(self.name + ": shape inference")
-            if kwargs.get("fuse_mha_qkv_int8", False):
-                opt.fuse_mha_qkv_int8_sq()
-                opt.info(self.name + ": fuse QKV nodes")
-
-        onnx_opt_graph = gs.export_onnx(opt.graph)
-        opt.info(self.name + ": finished")
-        return onnx_opt_graph
