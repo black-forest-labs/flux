@@ -30,10 +30,6 @@ import types
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
 
-def GiB(val):
-    return val * 1 << 30
-
-
 def CUASSERT(cuda_ret):
     err = cuda_ret[0]
     if err != cudart.cudaError_t.cudaSuccess:
@@ -69,12 +65,6 @@ class Engine:
         self.buffers = OrderedDict()
         self.tensors = OrderedDict()
         self.cuda_graph_instance = None  # cuda graph
-
-    def __del__(self):
-        del self.engine
-        del self.context
-        del self.buffers
-        del self.tensors
 
     def build(
         self,
@@ -129,69 +119,69 @@ class Engine:
             )
             save_engine(engine, path=self.engine_path)
 
-    def load(self):
-        print(f"Loading TensorRT engine: {self.engine_path}")
-        self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
+    # def load(self):
+    #     print(f"Loading TensorRT engine: {self.engine_path}")
+    #     self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
 
-    def activate(self, device_memory=None):
-        if device_memory:
-            self.context = self.engine.create_execution_context_without_device_memory()
-            self.context.device_memory = device_memory
-        else:
-            self.context = self.engine.create_execution_context()
+    # def activate(self, device_memory=None):
+    #     if device_memory:
+    #         self.context = self.engine.create_execution_context_without_device_memory()
+    #         self.context.device_memory = device_memory
+    #     else:
+    #         self.context = self.engine.create_execution_context()
 
-    def reactivate(self, device_memory):
-        assert self.context
-        self.context.device_memory = device_memory
+    # def reactivate(self, device_memory):
+    #     assert self.context
+    #     self.context.device_memory = device_memory
 
-    def deactivate(self):
-        del self.context
-        self.context = None
+    # def deactivate(self):
+    #     del self.context
+    #     self.context = None
 
-    def allocate_buffers(self, shape_dict=None, device="cuda"):
-        for binding in range(self.engine.num_io_tensors):
-            name = self.engine.get_tensor_name(binding)
-            if shape_dict and name in shape_dict:
-                shape = shape_dict[name]
-            else:
-                shape = self.engine.get_tensor_shape(name)
-            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
-                self.context.set_input_shape(name, shape)
-            dtype = trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(name)]
-            tensor = torch.empty(tuple(shape), dtype=dtype).to(device=device)
-            self.tensors[name] = tensor
+    # def allocate_buffers(self, shape_dict=None, device="cuda"):
+    #     for binding in range(self.engine.num_io_tensors):
+    #         name = self.engine.get_tensor_name(binding)
+    #         if shape_dict and name in shape_dict:
+    #             shape = shape_dict[name]
+    #         else:
+    #             shape = self.engine.get_tensor_shape(name)
+    #         if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+    #             self.context.set_input_shape(name, shape)
+    #         dtype = trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(name)]
+    #         tensor = torch.empty(tuple(shape), dtype=dtype).to(device=device)
+    #         self.tensors[name] = tensor
 
-    def deallocate_buffers(self):
-        for idx in range(self.engine.num_io_tensors):
-            binding = self.engine[idx]
-            del self.tensors[binding]
+    # def deallocate_buffers(self):
+    #     for idx in range(self.engine.num_io_tensors):
+    #         binding = self.engine[idx]
+    #         del self.tensors[binding]
 
-    def infer(self, feed_dict, stream, use_cuda_graph=False):
-        for name, buf in feed_dict.items():
-            self.tensors[name].copy_(buf)
+    # def infer(self, feed_dict, stream, use_cuda_graph=False):
+    #     for name, buf in feed_dict.items():
+    #         self.tensors[name].copy_(buf)
 
-        for name, tensor in self.tensors.items():
-            self.context.set_tensor_address(name, tensor.data_ptr())
+    #     for name, tensor in self.tensors.items():
+    #         self.context.set_tensor_address(name, tensor.data_ptr())
 
-        if use_cuda_graph:
-            if self.cuda_graph_instance is not None:
-                CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream))
-                CUASSERT(cudart.cudaStreamSynchronize(stream))
-            else:
-                # do inference before CUDA graph capture
-                noerror = self.context.execute_async_v3(stream)
-                if not noerror:
-                    raise ValueError(f"ERROR: inference failed.")
-                # capture cuda graph
-                CUASSERT(
-                    cudart.cudaStreamBeginCapture(stream, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeGlobal)
-                )
-                self.context.execute_async_v3(stream)
-                self.graph = CUASSERT(cudart.cudaStreamEndCapture(stream))
-                self.cuda_graph_instance = CUASSERT(cudart.cudaGraphInstantiate(self.graph, 0))
-        else:
-            noerror = self.context.execute_async_v3(stream)
-            if not noerror:
-                raise ValueError(f"ERROR: inference failed.")
+    #     if use_cuda_graph:
+    #         if self.cuda_graph_instance is not None:
+    #             CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream))
+    #             CUASSERT(cudart.cudaStreamSynchronize(stream))
+    #         else:
+    #             # do inference before CUDA graph capture
+    #             noerror = self.context.execute_async_v3(stream)
+    #             if not noerror:
+    #                 raise ValueError(f"ERROR: inference failed.")
+    #             # capture cuda graph
+    #             CUASSERT(
+    #                 cudart.cudaStreamBeginCapture(stream, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeGlobal)
+    #             )
+    #             self.context.execute_async_v3(stream)
+    #             self.graph = CUASSERT(cudart.cudaStreamEndCapture(stream))
+    #             self.cuda_graph_instance = CUASSERT(cudart.cudaGraphInstantiate(self.graph, 0))
+    #     else:
+    #         noerror = self.context.execute_async_v3(stream)
+    #         if not noerror:
+    #             raise ValueError(f"ERROR: inference failed.")
 
-        return self.tensors
+    #     return self.tensors
