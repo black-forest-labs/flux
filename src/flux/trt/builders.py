@@ -52,9 +52,7 @@ class TRTBuilder:
             "t5": T5Wrapper(
                 t5_model,
                 max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
+                tf32=True,
                 verbose=verbose,
             ),
             "ae": AEWrapper(
