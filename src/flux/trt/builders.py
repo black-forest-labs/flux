@@ -179,11 +179,6 @@ class TRTBuilder:
         opt_image_height: int,
         opt_image_width: int,
         onnx_opset: int,
-        quantization_level: float,
-        quantization_percentile: float,
-        quantization_alpha: float,
-        calibration_size: int,
-        calib_batch_size: int,
     ):
         do_export_onnx = not os.path.exists(model_config["engine_path"]) and not os.path.exists(
             model_config["onnx_opt_path"]
@@ -252,13 +247,6 @@ class TRTBuilder:
         optimization_level=3,
         enable_all_tactics=False,
         timing_cache=None,
-        int8=False,
-        fp8=False,
-        quantization_level=2.5,
-        quantization_percentile=1.0,
-        quantization_alpha=0.8,
-        calibration_size=32,
-        calib_batch_size=2,
     ):
         self._create_directories(
             engine_dir=engine_dir,
@@ -278,11 +266,6 @@ class TRTBuilder:
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
                 onnx_opset=onnx_opset,
-                quantization_level=quantization_level,
-                quantization_percentile=quantization_percentile,
-                quantization_alpha=quantization_alpha,
-                calibration_size=calibration_size,
-                calib_batch_size=calib_batch_size,
             )
 
         # Reclaim GPU memory from torch cache
