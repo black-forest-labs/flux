@@ -1,8 +1,9 @@
+from typing import Any
+from collections import OrderedDict
+import gc
 
 import numpy as np
 
-from typing import Any
-from collections import OrderedDict
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import (
@@ -49,17 +50,26 @@ trt_to_torch_dtype_dict = {
 class BaseEngine(ABC):
     def __init__(
         self,
-        engine_path,
+        stream: cudart.cudaStream_t,
+        engine_path: str,
     ):
         self.engine_path = engine_path
+        self.stream = stream
         self.engine: trt.ICudaEngine | None = None
         self.context = None
-        self.buffers = OrderedDict()
         self.tensors = OrderedDict()
-        self.cuda_graph_instance = None  # cuda graph
 
     @abstractmethod
-    def __call__(self, args, Kwargs):
+    def __call__(self, *args, **Kwargs) -> torch.Tensor | dict[str, torch.Tensor] | tuple[torch.Tensor]:
+        pass
+
+    @abstractmethod
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ) -> dict[str, tuple]:
         pass
 
     def build(
@@ -119,65 +129,60 @@ class BaseEngine(ABC):
         print(f"Loading TensorRT engine: {self.engine_path}")
         self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
 
-    # def activate(self, device_memory=None):
-    #     if device_memory:
-    #         self.context = self.engine.create_execution_context_without_device_memory()
-    #         self.context.device_memory = device_memory
-    #     else:
-    #         self.context = self.engine.create_execution_context()
+    def activate(
+        self,
+        device_memory: int | None = None,
+    ):
+        if device_memory:
+            self.context = self.engine.create_execution_context_without_device_memory()
+            self.context.device_memory = device_memory
+        else:
+            self.context = self.engine.create_execution_context()
 
-    # def reactivate(self, device_memory):
-    #     assert self.context
-    #     self.context.device_memory = device_memory
+    def reactivate(self, device_memory: int):
+        assert self.context
+        self.context.device_memory = device_memory
 
-    # def deactivate(self):
-    #     del self.context
-    #     self.context = None
+    def deactivate(self):
+        del self.context
+        self.context = None
+        gc.collect()
 
-    # def allocate_buffers(self, shape_dict=None, device="cuda"):
-    #     for binding in range(self.engine.num_io_tensors):
-    #         name = self.engine.get_tensor_name(binding)
-    #         if shape_dict and name in shape_dict:
-    #             shape = shape_dict[name]
-    #         else:
-    #             shape = self.engine.get_tensor_shape(name)
-    #         if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
-    #             self.context.set_input_shape(name, shape)
-    #         dtype = trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(name)]
-    #         tensor = torch.empty(tuple(shape), dtype=dtype).to(device=device)
-    #         self.tensors[name] = tensor
+    def allocate_buffers(
+        self,
+        shape_dict: dict[str, tuple],
+        device="cuda",
+    ):
+        for binding in range(self.engine.num_io_tensors):
+            tensor_name = self.engine.get_tensor_name(binding)
+            tensor_shape = shape_dict[tensor_name]
 
-    # def deallocate_buffers(self):
-    #     for idx in range(self.engine.num_io_tensors):
-    #         binding = self.engine[idx]
-    #         del self.tensors[binding]
+            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, tensor_shape)
+            tensor_dtype = trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(tensor_name)]
+            tensor = torch.empty(
+                tensor_shape,
+                dtype=tensor_dtype,
+            ).to(device=device)
+            self.tensors[tensor_name] = tensor
 
-    # def infer(self, feed_dict, stream, use_cuda_graph=False):
-    #     for name, buf in feed_dict.items():
-    #         self.tensors[name].copy_(buf)
+    def deallocate_buffers(self):
+        for idx in range(self.engine.num_io_tensors):
+            tensor_name = self.engine.get_tensor_name(binding)
+            del self.tensors[tensor_name]
 
-    #     for name, tensor in self.tensors.items():
-    #         self.context.set_tensor_address(name, tensor.data_ptr())
+    def infer(
+        self,
+        feed_dict: dict[str, torch.Tensor],
+    ):
+        for name, buf in feed_dict.items():
+            self.tensors[name].copy_(buf)
 
-    #     if use_cuda_graph:
-    #         if self.cuda_graph_instance is not None:
-    #             CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream))
-    #             CUASSERT(cudart.cudaStreamSynchronize(stream))
-    #         else:
-    #             # do inference before CUDA graph capture
-    #             noerror = self.context.execute_async_v3(stream)
-    #             if not noerror:
-    #                 raise ValueError(f"ERROR: inference failed.")
-    #             # capture cuda graph
-    #             CUASSERT(
-    #                 cudart.cudaStreamBeginCapture(stream, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeGlobal)
-    #             )
-    #             self.context.execute_async_v3(stream)
-    #             self.graph = CUASSERT(cudart.cudaStreamEndCapture(stream))
-    #             self.cuda_graph_instance = CUASSERT(cudart.cudaGraphInstantiate(self.graph, 0))
-    #     else:
-    #         noerror = self.context.execute_async_v3(stream)
-    #         if not noerror:
-    #             raise ValueError(f"ERROR: inference failed.")
+        for name, tensor in self.tensors.items():
+            self.context.set_tensor_address(name, tensor.data_ptr())
 
-    #     return self.tensors
+        noerror = self.context.execute_async_v3(self.stream)
+        if not noerror:
+            raise ValueError(f"ERROR: inference failed.")
+
+        return self.tensors
