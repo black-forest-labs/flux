@@ -7,7 +7,7 @@ from typing import Any
 from flux.modules.autoencoder import AutoEncoder
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
-from flux.trt.wrappers import BaseWrapper, AEWrapper, CLIPWrapper, FluxWrapper, T5Wrapper, Engine
+from flux.trt.wrappers import OnnxWrapper, AEOnnxWrapper, CLIPOnnxWrapper, FluxOnnxWrapper, T5OnnxWrapper
 
 
 class TRTBuilder:
@@ -33,7 +33,7 @@ class TRTBuilder:
     ):
         self.device = device
         self.models = {
-            "clip": CLIPWrapper(
+            "clip": CLIPOnnxWrapper(
                 clip_model,
                 max_batch=max_batch,
                 fp16=fp16,
@@ -41,7 +41,7 @@ class TRTBuilder:
                 bf16=bf16,
                 verbose=verbose,
             ),
-            "transformer": FluxWrapper(
+            "transformer": FluxOnnxWrapper(
                 flux_model,
                 max_batch=max_batch,
                 fp16=fp16,
@@ -50,13 +50,13 @@ class TRTBuilder:
                 verbose=verbose,
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
-            "t5": T5Wrapper(
+            "t5": T5OnnxWrapper(
                 t5_model,
                 max_batch=max_batch,
                 tf32=True,
                 verbose=verbose,
             ),
-            "ae": AEWrapper(
+            "ae": AEOnnxWrapper(
                 ae_model,
                 max_batch=max_batch,
                 tf32=True,
@@ -174,7 +174,7 @@ class TRTBuilder:
 
     def _export_onnx(
         self,
-        obj: BaseWrapper,
+        obj: OnnxWrapper,
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
@@ -201,7 +201,7 @@ class TRTBuilder:
 
     def _build_engine(
         self,
-        obj: BaseWrapper,
+        obj: OnnxWrapper,
         engine: Engine,
         model_config: dict[str, Any],
         opt_batch_size: int,
@@ -273,11 +273,10 @@ class TRTBuilder:
                 onnx_opset=onnx_opset,
             )
 
-
         # Build TensorRT engines
         for model_name, obj in self.models.items():
             model_config = model_configs[model_name]
-            engine = Engine(model_config["engine_path"])
+            engine = OnnxWrapper(model_config["engine_path"])
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
                     obj,
