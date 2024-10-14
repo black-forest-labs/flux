@@ -4,9 +4,6 @@ import torch
 import tensorrt as trt
 from typing import Any
 
-from flux.modules.autoencoder import AutoEncoder
-from flux.modules.conditioner import HFEmbedder
-from flux.model import Flux
 from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
 from flux.trt.engine import BaseEngine, AEEngine
 
