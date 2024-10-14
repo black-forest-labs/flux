@@ -1,15 +1,9 @@
-import warnings
-import os
-import onnx
+
 import numpy as np
 
 from typing import Any
 from collections import OrderedDict
 from cuda import cudart
-from enum import Enum, auto
-import gc
-from io import BytesIO
-from onnx import numpy_helper
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import (
     CreateConfig,
@@ -58,7 +52,7 @@ class BaseEngine(ABC):
         engine_path,
     ):
         self.engine_path = engine_path
-        self.engine = None
+        self.engine: trt.ICudaEngine | None = None
         self.context = None
         self.buffers = OrderedDict()
         self.tensors = OrderedDict()
@@ -121,9 +115,9 @@ class BaseEngine(ABC):
             )
             save_engine(engine, path=self.engine_path)
 
-    # def load(self):
-    #     print(f"Loading TensorRT engine: {self.engine_path}")
-    #     self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
+    def load(self):
+        print(f"Loading TensorRT engine: {self.engine_path}")
+        self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
 
     # def activate(self, device_memory=None):
     #     if device_memory:
