@@ -204,7 +204,7 @@ class Optimizer:
         cast_fp8_mha_io(self.graph)
 
 
-class BaseWrapper(ABC):
+class OnnxWrapper(ABC):
     def __init__(
         self,
         model: nn.Module,

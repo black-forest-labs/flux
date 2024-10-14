@@ -2,10 +2,10 @@ import torch
 import onnx_graphsurgeon as gs
 
 from flux.modules.conditioner import HFEmbedder
-from .base_wrapper import BaseWrapper, Optimizer, TransformersModelWrapper
+from src.flux.trt.wrappers.onnx_export.base_wrapper import OnnxWrapper, TransformersModelWrapper
 
 
-class T5Wrapper(BaseWrapper):
+class T5OnnxWrapper(OnnxWrapper):
     def __init__(
         self,
         model: HFEmbedder,
