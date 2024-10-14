@@ -19,7 +19,7 @@ from flux.util import (
     load_t5,
 )
 from transformers import pipeline
-from flux.trt import TRTBuilder
+from flux.trt.builders import TRTBuilder
 
 NSFW_THRESHOLD = 0.85
 
