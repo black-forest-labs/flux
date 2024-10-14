@@ -68,6 +68,7 @@ class Optimizer:
         onnx_graph = fold_constants(
             gs.export_onnx(self.graph),
             allow_onnxruntime_shape_inference=True,
+            error_ok=False,
         )
         self.graph = gs.import_onnx(onnx_graph)
         if return_onnx:
