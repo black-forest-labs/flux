@@ -298,3 +298,10 @@ class TRTBuilder:
                     enable_all_tactics,
                     timing_cache,
                 )
+
+    @staticmethod
+    def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
+        max_device_memory = 0
+        for model_name, engine in engines.items():
+            max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
+        return max_device_memory
