@@ -98,37 +98,35 @@ class TRTBuilder:
         os.makedirs(onnx_model_dir, exist_ok=True)
         return os.path.join(onnx_model_dir, "state_dict.pt")
 
+    @staticmethod
     def _prepare_model_configs(
-        self,
+        models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
     ) -> dict[str, dict[str, Any]]:
-        model_names = self.models.keys()
+        model_names = models.keys()
         configs = {}
         for model_name in model_names:
-            config: dict[str, Any] = {
-                "use_int8": False,
-                "use_fp8": False,
-            }
+            config: dict[str, Any] = {}
             config["model_suffix"] = ""
 
-            config["onnx_path"] = self._get_onnx_path(
+            config["onnx_path"] = TRTBuilder._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 opt=False,
                 suffix=config["model_suffix"],
             )
-            config["onnx_opt_path"] = self._get_onnx_path(
+            config["onnx_opt_path"] = TRTBuilder._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
             )
-            config["engine_path"] = self._get_engine_path(
+            config["engine_path"] = TRTBuilder._get_engine_path(
                 model_name=model_name,
                 engine_dir=engine_dir,
                 suffix=config["model_suffix"],
             )
-            config["state_dict_path"] = self._get_state_dict_path(
+            config["state_dict_path"] = TRTBuilder._get_state_dict_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
