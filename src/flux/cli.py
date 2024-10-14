@@ -189,14 +189,18 @@ def main(
         torch.cuda.empty_cache()
 
         builder = TRTBuilder(
-            flux_model=model,
-            t5_model=t5,
-            clip_model=clip,
-            ae_model=ae,
+            fp16=True,
             device=torch_device,
         )
+
         builder.load_engines(
-            "/workspace/data/flux/engine",
+            models={
+                "clip": clip,
+                "flux_transformer": model,
+                "t5": t5,
+                "ae": ae,
+            },
+            engine_dir="/workspace/data/flux/engine",
             onnx_dir="/workspace/data/flux/onnx",
             onnx_opset=19,
             opt_batch_size=2,
