@@ -1,4 +1,4 @@
-from src.flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine.base_engine import BaseEngine
 
 
 class AEEngine(BaseEngine):
