@@ -18,6 +18,15 @@ class TRTBuilder:
     def stages(self) -> list[str]:
         return self.__stages__
 
+    @property
+    def model_to_exporter_dict(self) -> dict[str, type[BaseExporter]]:
+        return {
+            "ae": AEExporter,
+            "clip": CLIPExporter,
+            "flux_transformer": FluxExporter,
+            "t5": T5Exporter,
+        }
+
     def __init__(
         self,
         device: str | torch.device,
@@ -136,9 +145,40 @@ class TRTBuilder:
 
         return configs
 
+    def _get_onnx_exporters(
+        self,
+        models: dict[str, torch.nn.Module],
+    ) -> dict[str, BaseExporter]:
+        onnx_exporters = {}
+        for model_name, model in models.items():
+            onnx_exporter_class = self.model_to_exporter_dict[model_name]
+
+            if model_name in {"ae", "t5"}:
+                # traced in tf32 for numerical stability
+                onnx_exporter = onnx_exporter_class(
+                    model=model,
+                    tf32=True,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+                onnx_exporters[model_name] = onnx_exporter
+
+            else:
+                onnx_exporter = onnx_exporter_class(
+                    model=model,
+                    fp16=self.fp16,
+                    bf16=self.bf16,
+                    tf32=self.tf32,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+                onnx_exporters[model_name] = onnx_exporter
+
+        return onnx_exporters
+
     def _export_onnx(
         self,
-        obj: BaseExporter,
+        model_exporter: BaseExporter,
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
@@ -148,10 +188,10 @@ class TRTBuilder:
             model_config["onnx_opt_path"]
         )
 
-        obj.model = obj.model.to(self.device)
+        model_exporter.model = model_exporter.model.to(self.device)
 
         if do_export_onnx:
-            obj.export_onnx(
+            model_exporter.export_onnx(
                 onnx_path=model_config["onnx_path"],
                 onnx_opt_path=model_config["onnx_opt_path"],
                 onnx_opset=onnx_opset,
@@ -159,7 +199,7 @@ class TRTBuilder:
                 opt_image_width=opt_image_width,
             )
 
-        obj.model = obj.model.to("cpu")
+        model_exporter.model = model_exporter.model.to("cpu")
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -228,14 +268,17 @@ class TRTBuilder:
         )
 
         model_configs = self._prepare_model_configs(
+            models=models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
         )
 
+        onnx_exporters = self._get_onnx_exporters(models)
+
         # Export models to ONNX
-        for model_name, obj in models.items():
+        for model_name, model_exporter in onnx_exporters.items():
             self._export_onnx(
-                obj,
+                model_exporter=model_exporter,
                 model_config=model_configs[model_name],
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
