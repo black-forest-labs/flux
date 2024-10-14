@@ -1,10 +1,10 @@
 import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
-from .base_wrapper import BaseWrapper
+from src.flux.trt.wrappers.onnx_export.base_wrapper import OnnxWrapper
 
 
-class AEWrapper(BaseWrapper):
+class AEOnnxWrapper(OnnxWrapper):
     def __init__(
         self,
         model: AutoEncoder,

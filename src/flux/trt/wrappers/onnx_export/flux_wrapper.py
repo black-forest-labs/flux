@@ -1,10 +1,10 @@
 import torch
 from math import ceil
 from flux.model import Flux
-from .base_wrapper import BaseWrapper
+from src.flux.trt.wrappers.onnx_export.base_wrapper import OnnxWrapper
 
 
-class FluxWrapper(BaseWrapper):
+class FluxOnnxWrapper(OnnxWrapper):
     def __init__(
         self,
         model: Flux,
