@@ -274,15 +274,6 @@ class BaseExporter(ABC):
         pass
 
     @abstractmethod
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        pass
-
-    @abstractmethod
     def get_output_names(self) -> list[str]:
         pass
 

@@ -87,21 +87,6 @@ class AEExporter(BaseExporter):
             ]
         }
 
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        latent_height, latent_width = self.check_dims(
-            batch_size,
-            image_height,
-            image_width,
-        )
-        return {
-            "latent": (batch_size, self.model.params.z_channels, latent_height, latent_width),
-            "images": (batch_size, 3, image_height, image_width),
-        }
 
     def get_sample_input(
         self,
