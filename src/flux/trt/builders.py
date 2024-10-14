@@ -20,10 +20,6 @@ class TRTBuilder:
 
     def __init__(
         self,
-        flux_model: Flux,
-        t5_model: HFEmbedder,
-        clip_model: HFEmbedder,
-        ae_model: AutoEncoder,
         device: str | torch.device,
         max_batch=16,
         fp16=True,
@@ -33,43 +29,12 @@ class TRTBuilder:
         **kwargs,
     ):
         self.device = device
-        self.models = {
-            "clip": CLIPExporter(
-                clip_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-            ),
-            "flux_transformer": FluxExporter(
-                flux_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-                compression_factor=kwargs.get("compression_factor", 8),
-            ),
-            "t5": T5Exporter(
-                t5_model,
-                max_batch=max_batch,
-                tf32=True,
-                verbose=verbose,
-            ),
-            "ae": AEExporter(
-                ae_model,
-                max_batch=max_batch,
-                tf32=True,
-                verbose=verbose,
-                compression_factor=kwargs.get("compression_factor", 8),
-            ),
-        }
+        self.max_batch = max_batch
+        self.fp16 = fp16
+        self.tf32 = tf32
+        self.bf16 = bf16
         self.verbose = verbose
 
-        assert all(
-            stage in self.models for stage in self.stages
-        ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
         assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
@@ -244,6 +209,7 @@ class TRTBuilder:
 
     def load_engines(
         self,
+        models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
         onnx_opset: int,
@@ -254,6 +220,10 @@ class TRTBuilder:
         enable_all_tactics=False,
         timing_cache=None,
     ):
+        assert all(
+            stage in models for stage in self.stages
+        ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
+
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -265,7 +235,7 @@ class TRTBuilder:
         )
 
         # Export models to ONNX
-        for model_name, obj in self.models.items():
+        for model_name, obj in models.items():
             self._export_onnx(
                 obj,
                 model_config=model_configs[model_name],
@@ -275,7 +245,7 @@ class TRTBuilder:
             )
 
         # Build TensorRT engines
-        for model_name, obj in self.models.items():
+        for model_name, obj in models.items():
             model_config = model_configs[model_name]
             engine = AEEngine(model_config["engine_path"])
             if not os.path.exists(model_config["engine_path"]):
