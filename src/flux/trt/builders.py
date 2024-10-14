@@ -1,5 +1,6 @@
-import torch
 import os
+import gc
+import torch
 import tensorrt as trt
 from typing import Any
 
@@ -63,7 +64,6 @@ class TRTBuilder:
                 compression_factor=kwargs.get("compression_factor", 8),
             ),
         }
-        self.engines = {}
         self.verbose = verbose
 
         assert all(
@@ -196,6 +196,7 @@ class TRTBuilder:
             )
 
         obj.model = obj.model.to("cpu")
+        gc.collect()
         torch.cuda.empty_cache()
 
     def _build_engine(
@@ -236,6 +237,10 @@ class TRTBuilder:
             **extra_build_args,
         )
 
+        # Reclaim GPU memory from torch cache
+        gc.collect()
+        torch.cuda.empty_cache()
+
     def load_engines(
         self,
         engine_dir: str,
@@ -268,8 +273,6 @@ class TRTBuilder:
                 onnx_opset=onnx_opset,
             )
 
-        # Reclaim GPU memory from torch cache
-        torch.cuda.empty_cache()
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
@@ -287,7 +290,3 @@ class TRTBuilder:
                     enable_all_tactics,
                     timing_cache,
                 )
-            self.engines[model_name] = engine
-
-        # Reclaim GPU memory from torch cache
-        torch.cuda.empty_cache()
