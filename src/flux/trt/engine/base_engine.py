@@ -52,7 +52,7 @@ trt_to_torch_dtype_dict = {
 }
 
 
-class Engine(ABC):
+class BaseEngine(ABC):
     def __init__(
         self,
         engine_path,
