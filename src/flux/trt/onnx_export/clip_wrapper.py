@@ -1,13 +1,13 @@
 import torch
-from src.flux.trt.wrappers.onnx_export.base_wrapper import (
-    OnnxWrapper,
+from flux.trt.onnx_export.base_exporter import (
+    BaseExporter,
     Optimizer,
     TransformersModelWrapper,
 )
 from flux.modules.conditioner import HFEmbedder
 
 
-class CLIPOnnxWrapper(OnnxWrapper):
+class CLIPExporter(BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
@@ -84,9 +84,9 @@ class CLIPOnnxWrapper(OnnxWrapper):
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.text_maxlen),
-                (batch_size, self.text_maxlen),
-                (self.max_batch, self.text_maxlen),
+                (self.min_batch, self.model.text_maxlen),
+                (batch_size, self.model.text_maxlen),
+                (self.max_batch, self.model.text_maxlen),
             ]
         }
 

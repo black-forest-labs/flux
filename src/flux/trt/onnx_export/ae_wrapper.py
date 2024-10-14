@@ -1,10 +1,10 @@
 import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
-from src.flux.trt.wrappers.onnx_export.base_wrapper import OnnxWrapper
+from flux.trt.onnx_export.base_exporter import BaseExporter
 
 
-class AEOnnxWrapper(OnnxWrapper):
+class AEExporter(BaseExporter):
     def __init__(
         self,
         model: AutoEncoder,
@@ -33,6 +33,10 @@ class AEOnnxWrapper(OnnxWrapper):
 
         # set proper dtype
         self.prepare_model()
+
+    def get_model(self) -> torch.nn.Module:
+        self.model.forward = self.model.decode
+        return self.model
 
     def get_input_names(self):
         return ["latent"]
@@ -119,7 +123,3 @@ class AEOnnxWrapper(OnnxWrapper):
             dtype=torch.float32,
             device=self.device,
         )
-
-    def get_model(self) -> torch.nn.Module:
-        self.model.forward = self.model.decode
-        return self.model

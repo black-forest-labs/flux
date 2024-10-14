@@ -204,7 +204,7 @@ class Optimizer:
         cast_fp8_mha_io(self.graph)
 
 
-class OnnxWrapper(ABC):
+class BaseExporter(ABC):
     def __init__(
         self,
         model: nn.Module,
@@ -248,6 +248,9 @@ class OnnxWrapper(ABC):
 
         self.model = self.model.eval().requires_grad_(False)
 
+    def get_model(self) -> torch.nn.Module:
+        return self.model
+
     @abstractmethod
     def get_sample_input(
         self,
@@ -290,9 +293,6 @@ class OnnxWrapper(ABC):
     @abstractmethod
     def check_dims(self, *args) -> None | tuple[int, int]:
         pass
-
-    def get_model(self) -> torch.nn.Module:
-        return self.model
 
     # Helper utility for ONNX export
     def export_onnx(
