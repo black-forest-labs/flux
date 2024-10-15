@@ -68,6 +68,7 @@ class Optimizer:
         onnx_graph = fold_constants(
             gs.export_onnx(self.graph),
             allow_onnxruntime_shape_inference=True,
+            error_ok=False,
         )
         self.graph = gs.import_onnx(onnx_graph)
         if return_onnx:
@@ -203,7 +204,7 @@ class Optimizer:
         cast_fp8_mha_io(self.graph)
 
 
-class BaseWrapper(ABC):
+class BaseExporter(ABC):
     def __init__(
         self,
         model: nn.Module,
@@ -247,6 +248,9 @@ class BaseWrapper(ABC):
 
         self.model = self.model.eval().requires_grad_(False)
 
+    def get_model(self) -> torch.nn.Module:
+        return self.model
+
     @abstractmethod
     def get_sample_input(
         self,
@@ -270,15 +274,6 @@ class BaseWrapper(ABC):
         pass
 
     @abstractmethod
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        pass
-
-    @abstractmethod
     def get_output_names(self) -> list[str]:
         pass
 
@@ -289,9 +284,6 @@ class BaseWrapper(ABC):
     @abstractmethod
     def check_dims(self, *args) -> None | tuple[int, int]:
         pass
-
-    def get_model(self) -> torch.nn.Module:
-        return self.model
 
     # Helper utility for ONNX export
     def export_onnx(

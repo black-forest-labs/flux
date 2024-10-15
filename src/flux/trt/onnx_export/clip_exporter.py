@@ -1,8 +1,13 @@
 import torch
-from .base_wrapper import BaseWrapper, Optimizer, TransformersModelWrapper
+from flux.trt.onnx_export.base_exporter import (
+    BaseExporter,
+    Optimizer,
+    TransformersModelWrapper,
+)
 from flux.modules.conditioner import HFEmbedder
 
-class CLIPWrapper(BaseWrapper):
+
+class CLIPExporter(BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,

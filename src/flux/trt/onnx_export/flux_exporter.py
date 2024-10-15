@@ -1,10 +1,10 @@
 import torch
 from math import ceil
 from flux.model import Flux
-from .base_wrapper import BaseWrapper
+from flux.trt.onnx_export.base_exporter import BaseExporter
 
 
-class FluxWrapper(BaseWrapper):
+class FluxExporter(BaseExporter):
     def __init__(
         self,
         model: Flux,

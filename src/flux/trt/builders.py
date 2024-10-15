@@ -1,27 +1,31 @@
-import torch
 import os
+import gc
+import torch
 import tensorrt as trt
 from typing import Any
 
-from flux.modules.autoencoder import AutoEncoder
-from flux.modules.conditioner import HFEmbedder
-from flux.model import Flux
-from flux.trt.wrappers import BaseWrapper, AEWrapper, CLIPWrapper, FluxWrapper, T5Wrapper, Engine
+from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
+from flux.trt.engine import BaseEngine, AEEngine
 
 
 class TRTBuilder:
-    __stages__ = ["clip", "t5", "transformer", "ae"]
+    __stages__ = ["clip", "t5", "flux_transformer", "ae"]
 
     @property
     def stages(self) -> list[str]:
         return self.__stages__
 
+    @property
+    def model_to_exporter_dict(self) -> dict[str, type[BaseExporter]]:
+        return {
+            "ae": AEExporter,
+            "clip": CLIPExporter,
+            "flux_transformer": FluxExporter,
+            "t5": T5Exporter,
+        }
+
     def __init__(
         self,
-        flux_model: Flux,
-        t5_model: HFEmbedder,
-        clip_model: HFEmbedder,
-        ae_model: AutoEncoder,
         device: str | torch.device,
         max_batch=16,
         fp16=True,
@@ -31,44 +35,12 @@ class TRTBuilder:
         **kwargs,
     ):
         self.device = device
-        self.models = {
-            "clip": CLIPWrapper(
-                clip_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-            ),
-            "transformer": FluxWrapper(
-                flux_model,
-                max_batch=max_batch,
-                fp16=fp16,
-                tf32=tf32,
-                bf16=bf16,
-                verbose=verbose,
-                compression_factor=kwargs.get("compression_factor", 8),
-            ),
-            "t5": T5Wrapper(
-                t5_model,
-                max_batch=max_batch,
-                tf32=True,
-                verbose=verbose,
-            ),
-            "ae": AEWrapper(
-                ae_model,
-                max_batch=max_batch,
-                tf32=True,
-                verbose=verbose,
-                compression_factor=kwargs.get("compression_factor", 8),
-            ),
-        }
-        self.engines = {}
+        self.max_batch = max_batch
+        self.fp16 = fp16
+        self.tf32 = tf32
+        self.bf16 = bf16
         self.verbose = verbose
 
-        assert all(
-            stage in self.models for stage in self.stages
-        ), f"some stage is missing\n\tstages: {self.models.keys()}\n\tneeded stages: {self.stages}"
         assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
@@ -132,37 +104,35 @@ class TRTBuilder:
         os.makedirs(onnx_model_dir, exist_ok=True)
         return os.path.join(onnx_model_dir, "state_dict.pt")
 
+    @staticmethod
     def _prepare_model_configs(
-        self,
+        models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
     ) -> dict[str, dict[str, Any]]:
-        model_names = self.models.keys()
+        model_names = models.keys()
         configs = {}
         for model_name in model_names:
-            config: dict[str, Any] = {
-                "use_int8": False,
-                "use_fp8": False,
-            }
+            config: dict[str, Any] = {}
             config["model_suffix"] = ""
 
-            config["onnx_path"] = self._get_onnx_path(
+            config["onnx_path"] = TRTBuilder._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 opt=False,
                 suffix=config["model_suffix"],
             )
-            config["onnx_opt_path"] = self._get_onnx_path(
+            config["onnx_opt_path"] = TRTBuilder._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
             )
-            config["engine_path"] = self._get_engine_path(
+            config["engine_path"] = TRTBuilder._get_engine_path(
                 model_name=model_name,
                 engine_dir=engine_dir,
                 suffix=config["model_suffix"],
             )
-            config["state_dict_path"] = self._get_state_dict_path(
+            config["state_dict_path"] = TRTBuilder._get_state_dict_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
@@ -172,9 +142,40 @@ class TRTBuilder:
 
         return configs
 
+    def _get_onnx_exporters(
+        self,
+        models: dict[str, torch.nn.Module],
+    ) -> dict[str, BaseExporter]:
+        onnx_exporters = {}
+        for model_name, model in models.items():
+            onnx_exporter_class = self.model_to_exporter_dict[model_name]
+
+            if model_name in {"ae", "t5"}:
+                # traced in tf32 for numerical stability
+                onnx_exporter = onnx_exporter_class(
+                    model=model,
+                    tf32=True,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+                onnx_exporters[model_name] = onnx_exporter
+
+            else:
+                onnx_exporter = onnx_exporter_class(
+                    model=model,
+                    fp16=self.fp16,
+                    bf16=self.bf16,
+                    tf32=self.tf32,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+                onnx_exporters[model_name] = onnx_exporter
+
+        return onnx_exporters
+
     def _export_onnx(
         self,
-        obj: BaseWrapper,
+        model_exporter: BaseExporter,
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
@@ -184,10 +185,10 @@ class TRTBuilder:
             model_config["onnx_opt_path"]
         )
 
-        obj.model = obj.model.to(self.device)
+        model_exporter.model = model_exporter.model.to(self.device)
 
         if do_export_onnx:
-            obj.export_onnx(
+            model_exporter.export_onnx(
                 onnx_path=model_config["onnx_path"],
                 onnx_opt_path=model_config["onnx_opt_path"],
                 onnx_opset=onnx_opset,
@@ -195,13 +196,14 @@ class TRTBuilder:
                 opt_image_width=opt_image_width,
             )
 
-        obj.model = obj.model.to("cpu")
+        model_exporter.model = model_exporter.model.to("cpu")
+        gc.collect()
         torch.cuda.empty_cache()
 
     def _build_engine(
         self,
-        obj: BaseWrapper,
-        engine: Engine,
+        obj: BaseExporter,
+        engine: BaseEngine,
         model_config: dict[str, Any],
         opt_batch_size: int,
         opt_image_height: int,
@@ -236,8 +238,13 @@ class TRTBuilder:
             **extra_build_args,
         )
 
+        # Reclaim GPU memory from torch cache
+        gc.collect()
+        torch.cuda.empty_cache()
+
     def load_engines(
         self,
+        models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
         onnx_opset: int,
@@ -248,33 +255,37 @@ class TRTBuilder:
         enable_all_tactics=False,
         timing_cache=None,
     ):
+        assert all(
+            stage in models for stage in self.stages
+        ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
+
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
         )
 
         model_configs = self._prepare_model_configs(
+            models=models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
         )
 
+        onnx_exporters = self._get_onnx_exporters(models)
+
         # Export models to ONNX
-        for model_name, obj in self.models.items():
+        for model_name, model_exporter in onnx_exporters.items():
             self._export_onnx(
-                obj,
+                model_exporter=model_exporter,
                 model_config=model_configs[model_name],
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
                 onnx_opset=onnx_opset,
             )
 
-        # Reclaim GPU memory from torch cache
-        torch.cuda.empty_cache()
-
         # Build TensorRT engines
-        for model_name, obj in self.models.items():
+        for model_name, obj in models.items():
             model_config = model_configs[model_name]
-            engine = Engine(model_config["engine_path"])
+            engine = AEEngine(model_config["engine_path"])
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
                     obj,
@@ -287,7 +298,10 @@ class TRTBuilder:
                     enable_all_tactics,
                     timing_cache,
                 )
-            self.engines[model_name] = engine
 
-        # Reclaim GPU memory from torch cache
-        torch.cuda.empty_cache()
+    @staticmethod
+    def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
+        max_device_memory = 0
+        for model_name, engine in engines.items():
+            max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
+        return max_device_memory

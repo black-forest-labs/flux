@@ -1,10 +1,10 @@
 import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
-from .base_wrapper import BaseWrapper
+from flux.trt.onnx_export.base_exporter import BaseExporter
 
 
-class AEWrapper(BaseWrapper):
+class AEExporter(BaseExporter):
     def __init__(
         self,
         model: AutoEncoder,
@@ -33,6 +33,10 @@ class AEWrapper(BaseWrapper):
 
         # set proper dtype
         self.prepare_model()
+
+    def get_model(self) -> torch.nn.Module:
+        self.model.forward = self.model.decode
+        return self.model
 
     def get_input_names(self):
         return ["latent"]
@@ -83,21 +87,6 @@ class AEWrapper(BaseWrapper):
             ]
         }
 
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        latent_height, latent_width = self.check_dims(
-            batch_size,
-            image_height,
-            image_width,
-        )
-        return {
-            "latent": (batch_size, self.model.params.z_channels, latent_height, latent_width),
-            "images": (batch_size, 3, image_height, image_width),
-        }
 
     def get_sample_input(
         self,
@@ -119,7 +108,3 @@ class AEWrapper(BaseWrapper):
             dtype=torch.float32,
             device=self.device,
         )
-
-    def get_model(self) -> torch.nn.Module:
-        self.model.forward = self.model.decode
-        return self.model
