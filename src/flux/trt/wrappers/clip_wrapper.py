@@ -10,6 +10,7 @@ class CLIPWrapper(BaseWrapper):
         tf32=False,
         bf16=False,
         max_batch=16,
+        #text_maxlen=128,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="pooler_output")
@@ -79,9 +80,9 @@ class CLIPWrapper(BaseWrapper):
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.text_maxlen),
-                (batch_size, self.text_maxlen),
-                (self.max_batch, self.text_maxlen),
+                (self.min_batch, self.model.text_maxlen),
+                (batch_size, self.model.text_maxlen),
+                (self.max_batch, self.model.text_maxlen),
             ]
         }
 
