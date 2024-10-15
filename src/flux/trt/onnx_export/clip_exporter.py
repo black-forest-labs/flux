@@ -15,6 +15,7 @@ class CLIPExporter(BaseExporter):
         tf32=False,
         bf16=False,
         max_batch=16,
+        #text_maxlen=128,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="pooler_output")
