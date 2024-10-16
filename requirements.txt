@@ -1,0 +1,15 @@
+colored
+cuda-python
+# TODO: Pin Diffusers version after the next release
+git+https://github.com/huggingface/diffusers.git # Install from source for the latest changes in main
+ftfy
+nvtx
+onnx==1.15.0
+onnxruntime==1.17.3
+opencv-python==4.8.0.74
+onnxconverter_common==1.14.0
+transformers==4.42.2
+--extra-index-url https://pypi.nvidia.com
+onnx-graphsurgeon
+polygraphy==0.49.9
+sentencepiece
