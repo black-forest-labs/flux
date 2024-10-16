@@ -14,7 +14,7 @@ class FluxExporter(BaseExporter):
         max_batch=16,
         verbose=True,
         compression_factor=8,
-        build_strongly_typed=True,
+        build_strongly_typed=False,
     ):
         super().__init__(
             model=model,
