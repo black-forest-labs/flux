@@ -32,7 +32,7 @@ class FluxExporter(BaseExporter):
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
         self.build_strongly_typed = build_strongly_typed
-    
+
         # set proper dtype
         self.prepare_model()
 
@@ -64,7 +64,7 @@ class FluxExporter(BaseExporter):
         }
         if self.guidance_embed:
             dynamic_axes["guidance"] = {0: "B"}
-        
+
         dynamic_axes["latent"] = {0: "B", 1: "latent_dim"}
         return dynamic_axes
 
@@ -118,10 +118,10 @@ class FluxExporter(BaseExporter):
                 (self.max_batch, self.model.params.vec_in_dim),
             ],
         }
-    
+
         if self.guidance_embed:
             input_profile["guidance"] = [(self.min_batch,), (batch_size,), (self.max_batch,)]
-        
+
         return input_profile
 
     def get_shape_dict(
@@ -145,10 +145,10 @@ class FluxExporter(BaseExporter):
             "y": (batch_size, self.model.params.vec_in_dim),
             "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.model.out_channels),
         }
-        
+
         if self.guidance_embed:
             shape_dict["guidance"] = (batch_size,)
-            
+
         return shape_dict
 
     def get_sample_input(
@@ -163,7 +163,7 @@ class FluxExporter(BaseExporter):
             image_width=opt_image_width,
         )
         dtype = torch.float16 if self.fp16 else torch.float32
-        
+
         inputs = (
             torch.randn(
                 batch_size,
@@ -184,7 +184,7 @@ class FluxExporter(BaseExporter):
             torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
             torch.randn(batch_size, self.model.params.vec_in_dim, dtype=dtype, device=self.device),
         )
-        
+
         if self.guidance_embed:
             inputs = inputs + (torch.full((batch_size,), 3.5, dtype=dtype, device=self.device),)
         return inputs
