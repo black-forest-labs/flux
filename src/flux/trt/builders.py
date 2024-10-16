@@ -283,7 +283,7 @@ class TRTBuilder:
             )
 
         # Build TensorRT engines
-        for model_name, obj in models.items():
+        for model_name, obj in onnx_exporters.items():
             model_config = model_configs[model_name]
             engine = AEEngine(model_config["engine_path"])
             if not os.path.exists(model_config["engine_path"]):
