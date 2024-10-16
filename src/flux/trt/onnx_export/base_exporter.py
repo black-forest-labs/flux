@@ -299,6 +299,8 @@ class BaseExporter(ABC):
         if not os.path.exists(onnx_opt_path):
             if not os.path.exists(onnx_path):
                 print(f"[I] Exporting ONNX model: {onnx_path}")
+                print("[I] model dtype: {}".format(next(self.model.parameters()).dtype))
+                print(f"[I] fp16 = {self.fp16} | tf32 = {self.tf32} | bf16 = {self.bf16}")
 
                 def export_onnx(model: torch.nn.Module):
                     inputs = self.get_sample_input(
