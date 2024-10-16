@@ -1,6 +1,6 @@
 from math import ceil
+
 import torch
-from cuda import cudart
 
 from flux.trt.engine.base_engine import BaseEngine
 
@@ -8,12 +8,11 @@ from flux.trt.engine.base_engine import BaseEngine
 class AEEngine(BaseEngine):
     def __init__(
         self,
-        stream: cudart.cudaStream_t,
         engine_path: str,
         z_channels=16,
         compression_factor=8,
     ):
-        super().__init__(stream, engine_path)
+        super().__init__(engine_path)
         self.z_channels = z_channels
         self.compression_factor = compression_factor
 
