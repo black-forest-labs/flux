@@ -67,11 +67,11 @@ class T5Exporter(BaseExporter):
         opt_image_width: int,
     ) -> torch.Tensor:
         self.check_dims(batch_size)
-        return torch.arange(
-            self.model.text_maxlen,
+        return torch.zeros(
+            (batch_size, self.model.text_maxlen),
             dtype=torch.int32,
             device=self.device,
-        ).repeat(batch_size, 1)
+        )
 
     def get_input_profile(
         self,
