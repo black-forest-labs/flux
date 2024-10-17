@@ -162,7 +162,16 @@ class FluxExporter(BaseExporter):
             image_height=opt_image_height,
             image_width=opt_image_width,
         )
-        dtype = torch.float16 if self.fp16 else torch.float32
+        if self.fp16:
+            dtype = torch.float16
+        elif self.bf16:
+            dtype = torch.bfloat16
+        elif self.tf32:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            dtype = torch.float32
+        else:
+            dtype = torch.float32
 
         inputs = (
             torch.randn(
