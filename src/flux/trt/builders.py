@@ -28,7 +28,7 @@ class TRTBuilder:
         self,
         device: str | torch.device,
         max_batch=16,
-        fp16=True,
+        fp16=False,
         tf32=False,
         bf16=False,
         verbose=True,
