@@ -50,11 +50,10 @@ trt_to_torch_dtype_dict = {
 class BaseEngine(ABC):
     def __init__(
         self,
-        stream: cudart.cudaStream_t,
         engine_path: str,
     ):
         self.engine_path = engine_path
-        self.stream = stream
+        self.stream: cudart.cudaStream_t | None = None
         self.engine: trt.ICudaEngine | None = None
         self.context = None
         self.tensors = OrderedDict()
