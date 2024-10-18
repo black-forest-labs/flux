@@ -5,9 +5,10 @@ from flux.trt.onnx_export.base_exporter import (
     TransformersModelWrapper,
 )
 from flux.modules.conditioner import HFEmbedder
+from flux.trt.mixin.clip_mixin import CLIPMixin
 
 
-class CLIPExporter(BaseExporter):
+class CLIPExporter(CLIPMixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
@@ -15,12 +16,12 @@ class CLIPExporter(BaseExporter):
         tf32=False,
         bf16=False,
         max_batch=16,
-        #text_maxlen=128,
         verbose=True,
     ):
-        exp_model = TransformersModelWrapper(model=model, output_name="pooler_output")
         super().__init__(
-            model=exp_model,
+            text_maxlen=model.max_length,
+            hidden_size=model.hf_module.config.hidden_size,
+            model=TransformersModelWrapper(model=model, output_name="pooler_output"),
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
@@ -58,7 +59,7 @@ class CLIPExporter(BaseExporter):
         self.check_dims(batch_size)
         return torch.zeros(
             batch_size,
-            self.model.text_maxlen,
+            self.text_maxlen,
             dtype=torch.int32,
             device=self.device,
         )
@@ -72,9 +73,9 @@ class CLIPExporter(BaseExporter):
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.model.text_maxlen),
-                (batch_size, self.model.text_maxlen),
-                (self.max_batch, self.model.text_maxlen),
+                (self.min_batch, self.text_maxlen),
+                (batch_size, self.text_maxlen),
+                (self.max_batch, self.text_maxlen),
             ]
         }
 
