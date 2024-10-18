@@ -9,12 +9,24 @@ class FluxEngine(BaseEngine):
     def __init__(
         self,
         engine_path: str,
+
+        in_channels: int,
+        context_in_dim: int,
+        vec_in_dim: int,
+        out_channels: int,
+        guidance_embed: bool,
+
         z_channels=16,
         compression_factor=8,
     ):
         super().__init__(engine_path)
         self.z_channels = z_channels
         self.compression_factor = compression_factor
+        self.in_channels = in_channels
+        self.context_in_dim = context_in_dim
+        self.vec_in_dim = vec_in_dim
+        self.out_channels = out_channels
+        self.guidance_embed = guidance_embed
 
     def __call__(
         self,
@@ -37,6 +49,14 @@ class FluxEngine(BaseEngine):
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.__call__(z)
 
+
+    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
+    
+        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
+        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
+
+        return (latent_height, latent_width)
+
     def get_shape_dict(
         self,
         batch_size: int,
@@ -50,13 +70,13 @@ class FluxEngine(BaseEngine):
         )
 
         shape_dict = {
-            "img": (batch_size, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+            "img": (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
             "img_ids": (batch_size, (latent_height // 2) * (latent_width // 2), 3),
-            "txt": (batch_size, 256, self.model.params.context_in_dim),
+            "txt": (batch_size, 256, self.context_in_dim),
             "txt_ids": (batch_size, 256, 3),
             "timesteps": (batch_size,),
-            "y": (batch_size, self.model.params.vec_in_dim),
-            "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.model.out_channels),
+            "y": (batch_size, self.vec_in_dim),
+            "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.out_channels),
         }
 
         if self.guidance_embed:

@@ -193,7 +193,7 @@ def main(
             device=torch_device,
         )
 
-        builder.load_engines(
+        engines = builder.load_engines(
             models={
                 "clip": clip,
                 "flux_transformer": model,
@@ -207,6 +207,17 @@ def main(
             opt_image_height=height,
             opt_image_width=width,
         )
+
+        # engines in place, no memory allocations yet
+        # 
+        # 
+        for engine_name, engine in engines.items():
+            engine.load()
+            shape_dict = engine.get_shape_dict(batch_size = 1, image_height = height, image_width = width)
+            engine.activate()
+            engine.allocate_buffers(shape_dict)
+            #tensors = enself.infer(inputs)
+            #return tensors[self.output_name]
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
