@@ -47,19 +47,6 @@ class T5Exporter(BaseExporter):
     ) -> None | tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
 
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        self.check_dims(batch_size)
-
-        return {
-            "input_ids": (batch_size, self.model.text_maxlen),
-            "text_embeddings": (batch_size, self.model.text_maxlen, self.model.hidden_size),
-        }
-
     def get_sample_input(
         self,
         batch_size: int,

@@ -9,12 +9,13 @@ class CLIPEngine(BaseEngine):
     def __init__(
         self,
         engine_path: str,
-        z_channels=16,
-        compression_factor=8,
+        text_max_len: int,
+        hidden_size: int
+
     ):
         super().__init__(engine_path)
-        self.z_channels = z_channels
-        self.compression_factor = compression_factor
+        self.text_max_len = text_max_len
+        self. hidden_size = hidden_size
 
     def __call__(
         self,
@@ -43,9 +44,8 @@ class CLIPEngine(BaseEngine):
         image_height: int,
         image_width: int,
     ) -> dict[str, tuple]:
-        self.check_dims(batch_size)
 
         return {
-            "input_ids": (batch_size, self.model.text_maxlen),
-            "text_embeddings": (batch_size, self.model.hidden_size),
+            "input_ids": (batch_size, self.text_max_len),
+            "text_embeddings": (batch_size, self.hidden_size),
         }
