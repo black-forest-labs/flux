@@ -2,9 +2,10 @@ import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
 from flux.trt.onnx_export.base_exporter import BaseExporter
+from flux.trt.mixin.ae_mixin import AEMixin
 
 
-class AEExporter(BaseExporter):
+class AEExporter(AEMixin, BaseExporter):
     def __init__(
         self,
         model: AutoEncoder,
@@ -16,6 +17,8 @@ class AEExporter(BaseExporter):
         compression_factor=8,
     ):
         super().__init__(
+            z_channels=model.params.z_channels,
+            compression_factor=compression_factor,
             model=model,
             fp16=fp16,
             tf32=tf32,
@@ -24,8 +27,6 @@ class AEExporter(BaseExporter):
             verbose=verbose,
         )
 
-        # TODO: fix compression_factor and model.param.z_channel
-        self.compression_factor = compression_factor
         self.min_image_shape = 256  # min image resolution: 256x256
         self.max_image_shape = 1360  # max image resolution: 1344x1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
@@ -81,12 +82,11 @@ class AEExporter(BaseExporter):
 
         return {
             "latent": [
-                (self.min_batch, self.model.params.z_channels, latent_height, latent_width),
-                (batch_size, self.model.params.z_channels, latent_height, latent_width),
-                (self.max_batch, self.model.params.z_channels, latent_height, latent_width),
+                (self.min_batch, self.z_channels, latent_height, latent_width),
+                (batch_size, self.z_channels, latent_height, latent_width),
+                (self.max_batch, self.z_channels, latent_height, latent_width),
             ]
         }
-
 
     def get_sample_input(
         self,
@@ -102,7 +102,7 @@ class AEExporter(BaseExporter):
 
         return torch.randn(
             batch_size,
-            self.model.params.z_channels,
+            self.z_channels,
             latent_height,
             latent_width,
             dtype=torch.float32,
