@@ -46,7 +46,6 @@ trt_to_torch_dtype_dict = {
     trt.DataType.BF16: torch.bfloat16,
 }
 
-
 class BaseEngine(ABC):
     def __init__(
         self,
