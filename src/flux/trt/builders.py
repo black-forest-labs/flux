@@ -5,7 +5,7 @@ import tensorrt as trt
 from typing import Any
 
 from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
-from flux.trt.engine import BaseEngine, AEEngine
+from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine 
 
 
 class TRTBuilder:
@@ -171,7 +171,7 @@ class TRTBuilder:
                 )
                 onnx_exporters[model_name] = onnx_exporter
 
-        return onnx_exporters
+        return onnx_exporters 
 
     def _export_onnx(
         self,
@@ -282,10 +282,24 @@ class TRTBuilder:
                 onnx_opset=onnx_opset,
             )
 
+        engines = dict()
+
+        # TODO there must be a nicer way
+        model_to_engine_class = {
+            "clip": CLIPEngine,
+            "flux_transformer": FluxEngine,
+            "t5": T5Engine,
+            "ae": AEEngine,
+        }
+
         # Build TensorRT engines
         for model_name, obj in onnx_exporters.items():
             model_config = model_configs[model_name]
+            
+            # TODO per model the proper class engine needs to be used
             engine = AEEngine(model_config["engine_path"])
+            
+
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
                     obj,
@@ -298,6 +312,10 @@ class TRTBuilder:
                     enable_all_tactics,
                     timing_cache,
                 )
+
+            engines[model_name] = engine
+        
+        return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:

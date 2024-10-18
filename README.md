@@ -41,6 +41,43 @@ source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
+## Local installation with TRT in mind
+
+First - the Dockerfile
+```
+FROM nvcr.io/nvidia/pytorch:24.07-py3
+
+RUN apt update
+RUN apt install -y python3.10-venv
+RUN apt install -y libgl1
+
+```
+
+Second - spin up the container
+```
+docker build  -t pyt_flux:24.09 - < Dockerfile
+
+docker run --gpus all --shm-size=8g --ulimit memlock=-1 -e HF_TOKEN="$HF_TOKEN" -p 8000:8000 -p 8001:8001 -p 8002:8002 -v "$PWD":/workspace --ulimit stack=67108864 -ti pyt_flux:24.09
+
+```
+
+Third - create the venv in the container. Note that it is persistent
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+# WITHIN the virtual env!!
+python -m pip install --upgrade pip
+pip install --pre tensorrt-cu12
+ls
+pip install -e .
+pip install -r requirements.txt 
+cat docker_hist 
+export HF_HOME=/workspace/hf_cache/
+python -m flux --name flux-schnell --loop --trt
+history
+```
+
 ### Models
 
 We are offering three models:
