@@ -3,18 +3,21 @@ from math import ceil
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.mixin.ae_mixin import AEMixin
 
 
-class AEEngine(BaseEngine):
+class AEEngine(AEMixin, BaseEngine):
     def __init__(
         self,
+        z_channels: int,
+        compression_factor: int,
         engine_path: str,
-        z_channels=16,
-        compression_factor=8,
     ):
-        super().__init__(engine_path)
-        self.z_channels = z_channels
-        self.compression_factor = compression_factor
+        super().__init__(
+            z_channels=z_channels,
+            compression_factor=compression_factor,
+            engine_path=engine_path,
+        )
 
     def __call__(
         self,
