@@ -5,7 +5,7 @@ import tensorrt as trt
 from typing import Any
 
 from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
-from flux.trt.engine import BaseEngine, AEEngine
+from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine 
 
 
 class TRTBuilder:
@@ -14,6 +14,16 @@ class TRTBuilder:
     @property
     def stages(self) -> list[str]:
         return self.__stages__
+
+    @property
+    def model_to_engine_class(self) -> dict:
+        return {
+            "clip": CLIPEngine,
+            "flux_transformer": FluxEngine,
+            "t5": T5Engine,
+            "ae": AEEngine,
+        }
+
 
     @property
     def model_to_exporter_dict(self) -> dict[str, type[BaseExporter]]:
@@ -171,7 +181,7 @@ class TRTBuilder:
                 )
                 onnx_exporters[model_name] = onnx_exporter
 
-        return onnx_exporters
+        return onnx_exporters 
 
     def _export_onnx(
         self,
@@ -282,10 +292,26 @@ class TRTBuilder:
                 onnx_opset=onnx_opset,
             )
 
+        engines = dict()
+
         # Build TensorRT engines
         for model_name, obj in onnx_exporters.items():
             model_config = model_configs[model_name]
-            engine = AEEngine(model_config["engine_path"])
+            
+            # TODO per model the proper class engine needs to be used
+            engine_class = self.model_to_engine_class[model_name]
+
+            if model_name == "clip":
+                parameters = {"text_max_len": obj.model.text_maxlen, "hidden_size": obj.model.hidden_size, "engine_path": model_config["engine_path"]}
+            elif model_name == "flux_transformer":
+                parameters = {"guidance_embed": obj.guidance_embed,"in_channels": obj.model.params.in_channels, "context_in_dim": obj.model.params.context_in_dim, "vec_in_dim": obj.model.params.vec_in_dim, "out_channels": obj.model.out_channels, "engine_path": model_config["engine_path"]}
+            
+
+            else:
+                parameters = {"engine_path": model_config["engine_path"]}
+            
+            engine = engine_class(**parameters)
+
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
                     obj,
@@ -298,6 +324,10 @@ class TRTBuilder:
                     enable_all_tactics,
                     timing_cache,
                 )
+
+            engines[model_name] = engine
+        
+        return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:

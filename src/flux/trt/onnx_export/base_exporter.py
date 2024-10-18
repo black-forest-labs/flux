@@ -326,6 +326,7 @@ class BaseExporter(ABC):
                 print(f"[I] Found cached ONNX model: {onnx_path}")
 
             print(f"[I] Optimizing ONNX model: {onnx_opt_path}")
+            print("debuglog - loading the model to optimize")
             onnx_opt_graph = self.optimize(onnx.load(onnx_path))
             if onnx_opt_graph.ByteSize() > 2147483648:
                 onnx.save_model(
@@ -336,6 +337,7 @@ class BaseExporter(ABC):
                     convert_attribute=False,
                 )
             else:
+                print("debuglog - save the model unoptimized")
                 onnx.save(onnx_opt_graph, onnx_opt_path)
         else:
             print(f"[I] Found cached optimized ONNX model: {onnx_opt_path} ")
