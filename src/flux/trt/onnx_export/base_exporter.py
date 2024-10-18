@@ -29,8 +29,6 @@ class TransformersModelWrapper(torch.nn.Module):
     def __init__(self, model: HFEmbedder, output_name: str):
         super().__init__()
         self.model: PreTrainedModel = model.hf_module
-        self.text_maxlen = model.max_length
-        self.hidden_size = model.hf_module.config.hidden_size
         self.output_name = output_name
 
     def forward(self, input_ids, *args):
