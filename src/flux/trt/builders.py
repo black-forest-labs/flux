@@ -2,10 +2,11 @@ import os
 import gc
 import torch
 import tensorrt as trt
-from typing import Any
+from typing import Any, Union
 
 from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
-from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine 
+from flux.trt.mixin import BaseMixin
+from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine
 
 
 class TRTBuilder:
@@ -23,7 +24,6 @@ class TRTBuilder:
             "t5": T5Engine,
             "ae": AEEngine,
         }
-
 
     @property
     def model_to_exporter_dict(self) -> dict[str, type[BaseExporter]]:
@@ -155,7 +155,7 @@ class TRTBuilder:
     def _get_onnx_exporters(
         self,
         models: dict[str, torch.nn.Module],
-    ) -> dict[str, BaseExporter]:
+    ) -> dict[str, Union[BaseMixin, BaseExporter]]:
         onnx_exporters = {}
         for model_name, model in models.items():
             onnx_exporter_class = self.model_to_exporter_dict[model_name]
@@ -181,11 +181,11 @@ class TRTBuilder:
                 )
                 onnx_exporters[model_name] = onnx_exporter
 
-        return onnx_exporters 
+        return onnx_exporters
 
     def _export_onnx(
         self,
-        model_exporter: BaseExporter,
+        model_exporter: Union[BaseMixin, BaseExporter],
         model_config: dict[str, Any],
         opt_image_height: int,
         opt_image_width: int,
@@ -292,25 +292,41 @@ class TRTBuilder:
                 onnx_opset=onnx_opset,
             )
 
-        engines = dict()
+        engines = {}
 
         # Build TensorRT engines
         for model_name, obj in onnx_exporters.items():
             model_config = model_configs[model_name]
-            
+
             # TODO per model the proper class engine needs to be used
             engine_class = self.model_to_engine_class[model_name]
+            engine = engine_class(
+                {
+                    **obj.get_mixin_params(),
+                    **{"engine_path": model_config["engine_path"]},
+                }
+            )
 
-            if model_name == "clip":
-                parameters = {"text_max_len": obj.model.text_maxlen, "hidden_size": obj.model.hidden_size, "engine_path": model_config["engine_path"]}
-            elif model_name == "flux_transformer":
-                parameters = {"guidance_embed": obj.guidance_embed,"in_channels": obj.model.params.in_channels, "context_in_dim": obj.model.params.context_in_dim, "vec_in_dim": obj.model.params.vec_in_dim, "out_channels": obj.model.out_channels, "engine_path": model_config["engine_path"]}
-            
+            # if model_name == "clip":
+            #     parameters = {
+            #         "text_max_len": obj.model.text_maxlen,
+            #         "hidden_size": obj.model.hidden_size,
+            #         "engine_path": model_config["engine_path"],
+            #     }
+            # elif model_name == "flux_transformer":
+            #     parameters = {
+            #         "guidance_embed": obj.guidance_embed,
+            #         "in_channels": obj.model.params.in_channels,
+            #         "context_in_dim": obj.model.params.context_in_dim,
+            #         "vec_in_dim": obj.model.params.vec_in_dim,
+            #         "out_channels": obj.model.out_channels,
+            #         "engine_path": model_config["engine_path"],
+            #     }
 
-            else:
-                parameters = {"engine_path": model_config["engine_path"]}
-            
-            engine = engine_class(**parameters)
+            # else:
+            #     parameters = {"engine_path": model_config["engine_path"]}
+
+            # engine = engine_class(**parameters)
 
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
@@ -326,7 +342,7 @@ class TRTBuilder:
                 )
 
             engines[model_name] = engine
-        
+
         return engines
 
     @staticmethod
