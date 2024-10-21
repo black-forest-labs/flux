@@ -2,9 +2,10 @@ import torch
 from math import ceil
 from flux.model import Flux
 from flux.trt.onnx_export.base_exporter import BaseExporter
+from flux.trt.mixin.flux_mixin import FluxMixin
 
 
-class FluxExporter(BaseExporter):
+class FluxExporter(FluxMixin, BaseExporter):
     def __init__(
         self,
         model: Flux,
@@ -17,6 +18,12 @@ class FluxExporter(BaseExporter):
         build_strongly_typed=False,
     ):
         super().__init__(
+            guidance_embed=model.params.guidance_embed,
+            vec_in_dim=model.params.vec_in_dim,
+            context_in_dim=model.params.context_in_dim,
+            in_channels=model.params.in_channels,
+            out_channels=model.out_channels,
+            compression_factor=compression_factor,
             model=model,
             fp16=fp16,
             tf32=tf32,
@@ -25,8 +32,6 @@ class FluxExporter(BaseExporter):
             verbose=verbose,
         )
 
-        self.guidance_embed = self.model.params.guidance_embed
-        self.compression_factor = compression_factor
         self.min_image_shape = 256  # min image resolution: 256x256
         self.max_image_shape = 1360  # max image resolution: 1344x1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
@@ -92,9 +97,9 @@ class FluxExporter(BaseExporter):
         )
         input_profile = {
             "img": [
-                (self.min_batch, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
-                (batch_size, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
-                (self.max_batch, (latent_height // 2) * (latent_width // 2), self.model.params.in_channels),
+                (self.min_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (self.max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
             ],
             "img_ids": [
                 (self.min_batch, (latent_height // 2) * (latent_width // 2), 3),
@@ -102,9 +107,9 @@ class FluxExporter(BaseExporter):
                 (self.max_batch, (latent_height // 2) * (latent_width // 2), 3),
             ],
             "txt": [
-                (self.min_batch, 256, self.model.params.context_in_dim),
-                (batch_size, 256, self.model.params.context_in_dim),
-                (self.max_batch, 256, self.model.params.context_in_dim),
+                (self.min_batch, 256, self.context_in_dim),
+                (batch_size, 256, self.context_in_dim),
+                (self.max_batch, 256, self.context_in_dim),
             ],
             "txt_ids": [
                 (self.min_batch, 256, 3),
@@ -113,9 +118,9 @@ class FluxExporter(BaseExporter):
             ],
             "timesteps": [(self.min_batch,), (batch_size,), (self.max_batch,)],
             "y": [
-                (self.min_batch, self.model.params.vec_in_dim),
-                (batch_size, self.model.params.vec_in_dim),
-                (self.max_batch, self.model.params.vec_in_dim),
+                (self.min_batch, self.vec_in_dim),
+                (batch_size, self.vec_in_dim),
+                (self.max_batch, self.vec_in_dim),
             ],
         }
 
@@ -150,7 +155,7 @@ class FluxExporter(BaseExporter):
             torch.randn(
                 batch_size,
                 (latent_height // 2) * (latent_width // 2),
-                self.model.params.in_channels,
+                self.in_channels,
                 dtype=dtype,
                 device=self.device,
             ),
@@ -161,10 +166,10 @@ class FluxExporter(BaseExporter):
                 dtype=torch.float32,
                 device=self.device,
             ),
-            torch.randn(batch_size, 256, self.model.params.context_in_dim, dtype=dtype, device=self.device) * 0.5,
+            torch.randn(batch_size, 256, self.context_in_dim, dtype=dtype, device=self.device) * 0.5,
             torch.zeros(batch_size, 256, 3, dtype=torch.float32, device=self.device),
             torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
-            torch.randn(batch_size, self.model.params.vec_in_dim, dtype=dtype, device=self.device),
+            torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
         )
 
         if self.guidance_embed:
