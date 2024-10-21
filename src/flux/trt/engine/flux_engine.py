@@ -3,30 +3,29 @@ from math import ceil
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.mixin.flux_mixin import FluxMixin
 
 
-class FluxEngine(BaseEngine):
+class FluxEngine(FluxMixin, BaseEngine):
     def __init__(
         self,
-        engine_path: str,
-
-        in_channels: int,
-        context_in_dim: int,
-        vec_in_dim: int,
-        out_channels: int,
         guidance_embed: bool,
-
-        z_channels=16,
-        compression_factor=8,
+        vec_in_dim: int,
+        context_in_dim: int,
+        in_channels: int,
+        out_channels: int,
+        compression_factor: int,
+        engine_path: str,
     ):
-        super().__init__(engine_path)
-        self.z_channels = z_channels
-        self.compression_factor = compression_factor
-        self.in_channels = in_channels
-        self.context_in_dim = context_in_dim
-        self.vec_in_dim = vec_in_dim
-        self.out_channels = out_channels
-        self.guidance_embed = guidance_embed
+        super().__init__(
+            guidance_embed=guidance_embed,
+            vec_in_dim=vec_in_dim,
+            context_in_dim=context_in_dim,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            compression_factor=compression_factor,
+            engine_path=engine_path,
+        )
 
     def __call__(
         self,
@@ -49,9 +48,7 @@ class FluxEngine(BaseEngine):
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.__call__(z)
 
-
     def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
-    
         latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
         latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
 
