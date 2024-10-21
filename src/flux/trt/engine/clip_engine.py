@@ -9,9 +9,9 @@ from flux.trt.mixin.clip_mixin import CLIPMixin
 class CLIPEngine(CLIPMixin, BaseEngine):
     def __init__(
         self,
-        engine_path: str,
         text_maxlen: int,
         hidden_size: int,
+        engine_path: str,
     ):
         super().__init__(
             text_maxlen=text_maxlen,
