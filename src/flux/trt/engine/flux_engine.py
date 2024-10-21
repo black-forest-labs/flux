@@ -48,11 +48,6 @@ class FluxEngine(FluxMixin, BaseEngine):
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.__call__(z)
 
-    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
-        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
-        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
-
-        return (latent_height, latent_width)
 
     def get_shape_dict(
         self,
@@ -60,8 +55,7 @@ class FluxEngine(FluxMixin, BaseEngine):
         image_height: int,
         image_width: int,
     ) -> dict[str, tuple]:
-        latent_height, latent_width = self.check_dims(
-            batch_size=batch_size,
+        latent_height, latent_width = self.get_latent_dims(
             image_height=image_height,
             image_width=image_width,
         )

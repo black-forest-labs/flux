@@ -77,8 +77,10 @@ class FluxExporter(FluxMixin, BaseExporter):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
-        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
+        latent_height, latent_width = self.get_latent_dims(
+            image_height=image_height,
+            image_width=image_width,
+        )
 
         assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
