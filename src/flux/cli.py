@@ -186,10 +186,11 @@ def main(
         model = model.cpu()
         clip = clip.cpu()
         t5 = t5.cpu()
+
         torch.cuda.empty_cache()
 
         builder = TRTBuilder(
-            fp16=True,
+            bf16=True,
             device=torch_device,
         )
 
@@ -208,16 +209,16 @@ def main(
             opt_image_width=width,
         )
 
-        # engines in place, no memory allocations yet
-        # 
-        # 
         for engine_name, engine in engines.items():
             engine.load()
+
+        calculate_max_device_memory = builder.calculate_max_device_memory(engines)
+
+        for engine_name, engine in engines.items():
+            engine.activate(calculate_max_device_memory)
             shape_dict = engine.get_shape_dict(batch_size = 1, image_height = height, image_width = width)
-            engine.activate()
             engine.allocate_buffers(shape_dict)
-            #tensors = enself.infer(inputs)
-            #return tensors[self.output_name]
+
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
