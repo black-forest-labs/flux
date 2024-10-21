@@ -15,7 +15,7 @@ class FluxExporter(FluxMixin, BaseExporter):
         max_batch=16,
         verbose=True,
         compression_factor=8,
-        build_strongly_typed=False,
+        build_strongly_typed=True,
     ):
         super().__init__(
             guidance_embed=model.params.guidance_embed,
