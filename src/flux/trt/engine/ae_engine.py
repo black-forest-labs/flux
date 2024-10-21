@@ -1,5 +1,3 @@
-from math import ceil
-
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
@@ -46,9 +44,10 @@ class AEEngine(AEMixin, BaseEngine):
         image_height: int,
         image_width: int,
     ) -> dict[str, tuple]:
-        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
-        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
-
+        latent_height, latent_width = self.get_latent_dim(
+            image_height=image_height,
+            image_width=image_width,
+        )
         return {
             "latent": (batch_size, self.z_channels, latent_height, latent_width),
             "images": (batch_size, 3, image_height, image_width),
