@@ -1,6 +1,5 @@
 import os
 import time
-from io import BytesIO
 import uuid
 
 import torch
