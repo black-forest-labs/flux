@@ -1,11 +1,11 @@
 import torch
-import onnx_graphsurgeon as gs
 
 from flux.modules.conditioner import HFEmbedder
 from flux.trt.onnx_export.base_exporter import BaseExporter, TransformersModelWrapper
+from flux.trt.mixin.t5_mixin import T5Mixin
 
 
-class T5Exporter(BaseExporter):
+class T5Exporter(T5Mixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
@@ -17,6 +17,8 @@ class T5Exporter(BaseExporter):
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
         super().__init__(
+            text_maxlen=model.max_length,
+            hidden_size=model.hf_module.config.hidden_size,
             model=exp_model,
             fp16=fp16,
             tf32=tf32,
@@ -55,7 +57,7 @@ class T5Exporter(BaseExporter):
     ) -> torch.Tensor:
         self.check_dims(batch_size)
         return torch.zeros(
-            (batch_size, self.model.text_maxlen),
+            (batch_size, self.text_maxlen),
             dtype=torch.int32,
             device=self.device,
         )
@@ -69,8 +71,8 @@ class T5Exporter(BaseExporter):
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.model.text_maxlen),
-                (batch_size, self.model.text_maxlen),
-                (self.max_batch, self.model.text_maxlen),
+                (self.min_batch, self.text_maxlen),
+                (batch_size, self.text_maxlen),
+                (self.max_batch, self.text_maxlen),
             ]
         }
