@@ -301,32 +301,9 @@ class TRTBuilder:
             # TODO per model the proper class engine needs to be used
             engine_class = self.model_to_engine_class[model_name]
             engine = engine_class(
-                {
-                    **obj.get_mixin_params(),
-                    **{"engine_path": model_config["engine_path"]},
-                }
+                engine_path=model_config["engine_path"],
+                **obj.get_mixin_params(),
             )
-
-            # if model_name == "clip":
-            #     parameters = {
-            #         "text_max_len": obj.model.text_maxlen,
-            #         "hidden_size": obj.model.hidden_size,
-            #         "engine_path": model_config["engine_path"],
-            #     }
-            # elif model_name == "flux_transformer":
-            #     parameters = {
-            #         "guidance_embed": obj.guidance_embed,
-            #         "in_channels": obj.model.params.in_channels,
-            #         "context_in_dim": obj.model.params.context_in_dim,
-            #         "vec_in_dim": obj.model.params.vec_in_dim,
-            #         "out_channels": obj.model.out_channels,
-            #         "engine_path": model_config["engine_path"],
-            #     }
-
-            # else:
-            #     parameters = {"engine_path": model_config["engine_path"]}
-
-            # engine = engine_class(**parameters)
 
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
