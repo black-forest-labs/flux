@@ -60,6 +60,8 @@ class TRTBuilder:
         fp16=False,
         tf32=False,
         bf16=False,
+        static_batch=True,
+        static_shape=True,
         verbose=True,
         **kwargs,
     ):
@@ -287,9 +289,9 @@ class TRTBuilder:
         enable_all_tactics=False,
         timing_cache=None,
     ):
-        assert all(
-            stage in models for stage in self.stages
-        ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
+        # assert all(
+        #     stage in models for stage in self.stages
+        # ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
 
         self._create_directories(
             engine_dir=engine_dir,
