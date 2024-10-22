@@ -83,12 +83,16 @@ class T5Exporter(T5Mixin, BaseExporter):
         batch_size: int,
         image_height: int,
         image_width: int,
+        static_batch: bool,
     ):
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+
         self.check_dims(batch_size)
         return {
             "input_ids": [
-                (self.min_batch, self.text_maxlen),
+                (min_batch, self.text_maxlen),
                 (batch_size, self.text_maxlen),
-                (self.max_batch, self.text_maxlen),
+                (max_batch, self.text_maxlen),
             ]
         }
