@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import sys
 import gc
 import torch
 import tensorrt as trt
@@ -23,6 +24,8 @@ from typing import Any, Union
 from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
 from flux.trt.mixin import BaseMixin
 from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine
+
+TRT_LOGGER = trt.Logger()
 
 
 class TRTBuilder:
@@ -65,7 +68,10 @@ class TRTBuilder:
         self.fp16 = fp16
         self.tf32 = tf32
         self.bf16 = bf16
+        self.static_batch = static_batch
+        self.static_shape = static_shape
         self.verbose = verbose
+        self.runtime: trt.Runtime = None
 
         assert torch.cuda.is_available(), "No cuda device available"
 
@@ -344,3 +350,12 @@ class TRTBuilder:
         for model_name, engine in engines.items():
             max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
         return max_device_memory
+
+    def init_runtime(self):
+        self.runtime = trt.Runtime(TRT_LOGGER)
+        enter_fn = type(self.runtime).__enter__
+        enter_fn(self.runtime)
+
+    def stop_runtime(self):
+        exit_fn = type(self.runtime).__exit__
+        exit_fn(self.runtime, *sys.exc_info())
