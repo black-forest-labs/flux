@@ -88,10 +88,14 @@ class AEExporter(AEMixin, BaseExporter):
 
     def get_input_profile(
         self,
-        batch_size,
-        image_height,
-        image_width,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: bool,
     ):
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+
         latent_height, latent_width = self.check_dims(
             batch_size=batch_size,
             image_height=image_height,
@@ -100,9 +104,9 @@ class AEExporter(AEMixin, BaseExporter):
 
         return {
             "latent": [
+                (min_batch, self.z_channels, latent_height, latent_width),
                 (batch_size, self.z_channels, latent_height, latent_width),
-                (batch_size, self.z_channels, latent_height, latent_width),
-                (batch_size, self.z_channels, latent_height, latent_width),
+                (max_batch, self.z_channels, latent_height, latent_width),
             ]
         }
 

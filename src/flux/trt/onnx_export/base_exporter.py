@@ -284,6 +284,7 @@ class BaseExporter(ABC):
         batch_size: int,
         image_height: int,
         image_width: int,
+        static_batch: bool,
     ) -> dict[str, Any]:
         pass
 

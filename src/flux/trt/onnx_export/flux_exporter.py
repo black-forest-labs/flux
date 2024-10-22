@@ -107,7 +107,11 @@ class FluxExporter(FluxMixin, BaseExporter):
         batch_size: int,
         image_height: int,
         image_width: int,
+        static_batch: bool,
     ) -> dict[str, list[tuple]]:
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+
         latent_height, latent_width = self.check_dims(
             batch_size=batch_size,
             image_height=image_height,
@@ -115,35 +119,35 @@ class FluxExporter(FluxMixin, BaseExporter):
         )
         input_profile = {
             "img": [
-                (self.min_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (min_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
                 (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
-                (self.max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
             ],
             "img_ids": [
-                (self.min_batch, (latent_height // 2) * (latent_width // 2), 3),
+                (min_batch, (latent_height // 2) * (latent_width // 2), 3),
                 (batch_size, (latent_height // 2) * (latent_width // 2), 3),
-                (self.max_batch, (latent_height // 2) * (latent_width // 2), 3),
+                (max_batch, (latent_height // 2) * (latent_width // 2), 3),
             ],
             "txt": [
-                (self.min_batch, 256, self.context_in_dim),
+                (min_batch, 256, self.context_in_dim),
                 (batch_size, 256, self.context_in_dim),
-                (self.max_batch, 256, self.context_in_dim),
+                (max_batch, 256, self.context_in_dim),
             ],
             "txt_ids": [
-                (self.min_batch, 256, 3),
+                (min_batch, 256, 3),
                 (batch_size, 256, 3),
-                (self.max_batch, 256, 3),
+                (max_batch, 256, 3),
             ],
-            "timesteps": [(self.min_batch,), (batch_size,), (self.max_batch,)],
+            "timesteps": [(min_batch,), (batch_size,), (max_batch,)],
             "y": [
-                (self.min_batch, self.vec_in_dim),
+                (min_batch, self.vec_in_dim),
                 (batch_size, self.vec_in_dim),
-                (self.max_batch, self.vec_in_dim),
+                (max_batch, self.vec_in_dim),
             ],
         }
 
         if self.guidance_embed:
-            input_profile["guidance"] = [(self.min_batch,), (batch_size,), (self.max_batch,)]
+            input_profile["guidance"] = [(min_batch,), (batch_size,), (max_batch,)]
 
         return input_profile
 
