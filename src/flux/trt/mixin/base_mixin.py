@@ -13,12 +13,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from torch import dtype
 
 from abc import ABC, abstractmethod
 from typing import Any
 
 
 class BaseMixin(ABC):
+    def __init__(self, should_be_dtype: dtype, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.should_be_dtype = should_be_dtype
+
     @abstractmethod
     def get_mixin_params(self) -> dict[str, Any]:
         pass
