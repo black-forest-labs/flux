@@ -62,6 +62,7 @@ trt_to_torch_dtype_dict = {
     trt.DataType.BF16: torch.bfloat16,
 }
 
+
 class BaseEngine(ABC):
     def __init__(
         self,
@@ -139,9 +140,13 @@ class BaseEngine(ABC):
             )
             save_engine(engine, path=self.engine_path)
 
-    def load(self):
+    def load(
+        self,
+        stream: cudart.cudaStream_t,
+    ):
         print(f"Loading TensorRT engine: {self.engine_path}")
         self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
+        self.stream = stream
 
     def activate(
         self,
