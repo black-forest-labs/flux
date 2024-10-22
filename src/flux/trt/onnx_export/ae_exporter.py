@@ -12,7 +12,7 @@ class AEExporter(AEMixin, BaseExporter):
         fp16=False,
         tf32=True,
         bf16=False,
-        max_batch=16,
+        max_batch=8,
         verbose=True,
         compression_factor=8,
     ):
@@ -84,9 +84,9 @@ class AEExporter(AEMixin, BaseExporter):
 
         return {
             "latent": [
-                (self.min_batch, self.z_channels, latent_height, latent_width),
                 (batch_size, self.z_channels, latent_height, latent_width),
-                (self.max_batch, self.z_channels, latent_height, latent_width),
+                (batch_size, self.z_channels, latent_height, latent_width),
+                (batch_size, self.z_channels, latent_height, latent_width),
             ]
         }
 
