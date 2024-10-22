@@ -1,9 +1,8 @@
-from math import ceil
-
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
 from flux.trt.mixin.t5_mixin import T5Mixin
+from transformers import T5Tokenizer
 
 
 class T5Engine(T5Mixin, BaseEngine):
@@ -18,27 +17,29 @@ class T5Engine(T5Mixin, BaseEngine):
             hidden_size=hidden_size,
             engine_path=engine_path,
         )
+        self.tokenizer = T5Tokenizer.from_pretrained(
+            "google/t5-v1_1-xxl",
+            max_length=self.text_maxlen,
+        )
 
     def __call__(
         self,
-        latent: torch.Tensor,
+        prompt: list[str],
     ) -> torch.Tensor:
-        assert latent.device == self.tensors["latent"].device, "device mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].device,
-            latent.device,
+        feed_dict = self.tokenizer(
+            prompt,
+            truncation=True,
+            max_length=self.text_maxlen,
+            return_length=False,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
         )
+        feed_dict.pop("attention_mask")
+        feed_dict["input_ids"] = feed_dict["input_ids"].to(torch.int32)
 
-        assert latent.dtype == self.tensors["latent"].dtype, "dtype mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].dtype,
-            latent.dtype,
-        )
-
-        feed_dict = {"latent": latent}
-        images = self.infer(feed_dict=feed_dict)["images"].clone()
-        return images
-
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
-        return self.__call__(z)
+        text_embeddings = self.infer(feed_dict=dict(input_ids=batch_encoding["input_ids"]))["text_embeddings"].clone()
+        return text_embeddings
 
     def get_shape_dict(
         self,
@@ -46,7 +47,6 @@ class T5Engine(T5Mixin, BaseEngine):
         image_height: int,
         image_width: int,
     ) -> dict[str, tuple]:
-
         return {
             "input_ids": (batch_size, self.text_maxlen),
             "text_embeddings": (batch_size, self.text_maxlen, self.hidden_size),
