@@ -42,19 +42,20 @@ class T5Engine(T5Mixin, BaseEngine):
         self,
         prompt: list[str],
     ) -> torch.Tensor:
-        feed_dict = self.tokenizer(
-            prompt,
-            truncation=True,
-            max_length=self.text_maxlen,
-            return_length=False,
-            return_overflowing_tokens=False,
-            padding="max_length",
-            return_tensors="pt",
-        )
-        feed_dict.pop("attention_mask")
-        feed_dict["input_ids"] = feed_dict["input_ids"].to(torch.int32)
+        with torch.inference_mode():
+            feed_dict = self.tokenizer(
+                prompt,
+                truncation=True,
+                max_length=self.text_maxlen,
+                return_length=False,
+                return_overflowing_tokens=False,
+                padding="max_length",
+                return_tensors="pt",
+            )
+            feed_dict = {"input_ids": feed_dict["input_ids"].to(torch.int32)}
 
-        text_embeddings = self.infer(feed_dict=dict(input_ids=batch_encoding["input_ids"]))["text_embeddings"].clone()
+            text_embeddings = self.infer(feed_dict)["text_embeddings"].clone()
+
         return text_embeddings
 
     def get_shape_dict(
