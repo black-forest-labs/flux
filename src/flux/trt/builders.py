@@ -61,7 +61,6 @@ class TRTBuilder:
         tf32=False,
         bf16=False,
         static_batch=True,
-        static_shape=True,
         verbose=True,
         **kwargs,
     ):
@@ -71,7 +70,6 @@ class TRTBuilder:
         self.tf32 = tf32
         self.bf16 = bf16
         self.static_batch = static_batch
-        self.static_shape = static_shape
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
@@ -234,17 +232,19 @@ class TRTBuilder:
         gc.collect()
         torch.cuda.empty_cache()
 
+    @staticmethod
     def _build_engine(
-        self,
         obj: BaseExporter,
         engine: BaseEngine,
         model_config: dict[str, Any],
         opt_batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
+        static_batch: bool,
         optimization_level: int,
         enable_all_tactics: bool,
         timing_cache,
+        verbose: bool,
     ):
         update_output_names = obj.get_output_names() + obj.extra_output_names if obj.extra_output_names else None
         fp16amp = False if getattr(obj, "build_strongly_typed", False) else obj.fp16
@@ -252,7 +252,7 @@ class TRTBuilder:
         bf16amp = False if getattr(obj, "build_strongly_typed", False) else obj.bf16
         strongly_typed = True if getattr(obj, "build_strongly_typed", False) else False
 
-        extra_build_args = {"verbose": self.verbose}
+        extra_build_args = {"verbose": verbose}
         extra_build_args["builder_optimization_level"] = optimization_level
 
         engine.build(
@@ -265,6 +265,7 @@ class TRTBuilder:
                 batch_size=opt_batch_size,
                 image_height=opt_image_height,
                 image_width=opt_image_width,
+                static_batch=static_batch,
             ),
             enable_all_tactics=enable_all_tactics,
             timing_cache=timing_cache,
@@ -331,15 +332,17 @@ class TRTBuilder:
 
             if not os.path.exists(model_config["engine_path"]):
                 self._build_engine(
-                    obj,
-                    engine,
-                    model_config,
-                    opt_batch_size,
-                    opt_image_height,
-                    opt_image_width,
-                    optimization_level,
-                    enable_all_tactics,
-                    timing_cache,
+                    obj=obj,
+                    engine=engine,
+                    model_config=model_config,
+                    opt_batch_size=opt_batch_size,
+                    opt_image_height=opt_image_height,
+                    opt_image_width=opt_image_width,
+                    static_batch=self.static_batch,
+                    optimization_level=optimization_level,
+                    enable_all_tactics=enable_all_tactics,
+                    timing_cache=timing_cache,
+                    verbose=self.verbose,
                 )
 
             engines[model_name] = engine
