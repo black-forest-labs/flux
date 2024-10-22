@@ -28,7 +28,7 @@ from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engi
 TRT_LOGGER = trt.Logger()
 
 
-class TRTBuilder:
+class TRTManager:
     __stages__ = ["clip", "t5", "flux_transformer", "ae"]
 
     @property
@@ -183,8 +183,17 @@ class TRTBuilder:
             onnx_exporter_class = self.model_to_exporter_dict[model_name]
 
             if model_name in {"ae", "t5"}:
+                if self.fp16:
+                    should_be_dtype = torch.float16
+                elif self.bf16:
+                    should_be_dtype = torch.bfloat16
+                else:
+                    should_be_dtype = torch.float32
+
                 # traced in tf32 for numerical stability
+                # pass expected dtype for cast the final output/input
                 onnx_exporter = onnx_exporter_class(
+                    should_be_dtype=should_be_dtype,
                     model=model,
                     tf32=True,
                     max_batch=self.max_batch,
@@ -194,6 +203,7 @@ class TRTBuilder:
 
             else:
                 onnx_exporter = onnx_exporter_class(
+                    should_be_dtype=should_be_dtype,
                     model=model,
                     fp16=self.fp16,
                     bf16=self.bf16,
