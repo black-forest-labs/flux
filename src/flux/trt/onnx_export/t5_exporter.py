@@ -12,7 +12,7 @@ class T5Exporter(T5Mixin, BaseExporter):
         fp16=False,
         tf32=False,
         bf16=False,
-        max_batch=16,
+        max_batch=8,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")

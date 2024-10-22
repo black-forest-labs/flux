@@ -15,7 +15,7 @@ class CLIPExporter(CLIPMixin, BaseExporter):
         fp16=False,
         tf32=False,
         bf16=False,
-        max_batch=16,
+        max_batch=8,
         verbose=True,
     ):
         super().__init__(

@@ -12,7 +12,7 @@ class FluxExporter(FluxMixin, BaseExporter):
         fp16=False,
         tf32=False,
         bf16=False,
-        max_batch=16,
+        max_batch=8,
         verbose=True,
         compression_factor=8,
         build_strongly_typed=True,
