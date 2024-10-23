@@ -17,7 +17,6 @@
 from typing import Any
 from math import ceil
 
-from torch import dtype
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
@@ -26,20 +25,24 @@ class AEMixin(BaseMixin):
         self,
         z_channels: int,
         compression_factor: int,
-        should_be_dtype: dtype,
+        scale_factor: float,
+        shift_factor: float,
         *args,
         **kwargs,
     ) -> None:
-        super().__init__(should_be_dtype=should_be_dtype, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.z_channels = z_channels
         self.compression_factor = compression_factor
+        self.scale_factor = scale_factor
+        self.shift_factor = shift_factor
 
     def get_mixin_params(self) -> dict[str, Any]:
         """helper class that return the parameters used for construction"""
         return {
             "z_channels": self.z_channels,
             "compression_factor": self.compression_factor,
-            "should_be_dtype": self.should_be_dtype,
+            "scale_factor": self.scale_factor,
+            "shift_factor": self.shift_factor,
         }
 
     def get_latent_dim(
