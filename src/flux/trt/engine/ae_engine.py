@@ -25,34 +25,41 @@ class AEEngine(AEMixin, BaseEngine):
         self,
         z_channels: int,
         compression_factor: int,
+        scale_factor: float,
+        shift_factor: float,
         engine_path: str,
     ):
         super().__init__(
             z_channels=z_channels,
             compression_factor=compression_factor,
+            scale_factor=scale_factor,
+            shift_factor=shift_factor,
             engine_path=engine_path,
         )
 
     def __call__(
         self,
-        latent: torch.Tensor,
+        x: torch.Tensor,
     ) -> torch.Tensor:
-        assert latent.device == self.tensors["latent"].device, "device mismatch | expected {}; actual {}".format(
+        return self.decode(x)
+
+
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
+        assert z.device == self.tensors["latent"].device, "device mismatch | expected {}; actual {}".format(
             self.tensors["latent"].device,
-            latent.device,
+            z.device,
         )
 
-        assert latent.dtype == self.tensors["latent"].dtype, "dtype mismatch | expected {}; actual {}".format(
+        assert z.dtype == self.tensors["latent"].dtype, "dtype mismatch | expected {}; actual {}".format(
             self.tensors["latent"].dtype,
-            latent.dtype,
+            z.dtype,
         )
+        z = z / self.scale_factor + self.shift_factor
 
-        feed_dict = {"latent": latent}
+        feed_dict = {"latent": z}
         images = self.infer(feed_dict=feed_dict)["images"].clone()
         return images
 
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
-        return self.__call__(z)
 
     def get_shape_dict(
         self,
