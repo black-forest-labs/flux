@@ -43,25 +43,16 @@ class FluxEngine(FluxMixin, BaseEngine):
 
     def __call__(
         self,
-        latent: torch.Tensor,
+        **kwargs,
     ) -> torch.Tensor:
-        assert latent.device == self.tensors["latent"].device, "device mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].device,
-            latent.device,
-        )
+        feed_dict = {
+            tensor_name: kwargs[tensor_name].to(dtype=tensor_value.dtype)
+            for tensor_name, tensor_value in self.tensors.items()
+            if tensor_name != "latent"
+        }
 
-        assert latent.dtype == self.tensors["latent"].dtype, "dtype mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].dtype,
-            latent.dtype,
-        )
-
-        feed_dict = {"latent": latent}
-        images = self.infer(feed_dict=feed_dict)["images"].clone()
-        return images
-
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
-        return self.__call__(z)
-
+        latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+        return latent
 
     def get_shape_dict(
         self,
