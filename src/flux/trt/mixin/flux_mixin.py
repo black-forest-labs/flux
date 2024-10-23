@@ -16,7 +16,6 @@
 
 from typing import Any
 from math import ceil
-from torch import dtype
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
@@ -29,11 +28,10 @@ class FluxMixin(BaseMixin):
         in_channels: int,
         out_channels: int,
         compression_factor: int,
-        should_be_dtype: dtype,
         *args,
         **kwargs,
     ) -> None:
-        super().__init__(should_be_dtype=should_be_dtype, * args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.guidance_embed = guidance_embed
         self.vec_in_dim = vec_in_dim
         self.context_in_dim = context_in_dim
@@ -50,7 +48,6 @@ class FluxMixin(BaseMixin):
             "in_channels": self.in_channels,
             "out_channels": self.out_channels,
             "compression_factor": self.compression_factor,
-            "should_be_dtype": self.should_be_dtype,
         }
 
     def get_latent_dims(
