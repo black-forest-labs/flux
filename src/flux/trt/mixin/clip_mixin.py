@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from typing import Any
-from torch import dtype
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
@@ -24,11 +23,10 @@ class CLIPMixin(BaseMixin):
         self,
         text_maxlen: int,
         hidden_size: int,
-        should_be_dtype: dtype,
         * args,
         **kwargs,
     ) -> None:
-        super().__init__(should_be_dtype=should_be_dtype, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.text_maxlen = text_maxlen
         self.hidden_size = hidden_size
 
@@ -37,5 +35,4 @@ class CLIPMixin(BaseMixin):
         return {
             "text_maxlen": self.text_maxlen,
             "hidden_size": self.hidden_size,
-            "should_be_dtype": self.should_be_dtype,
         }
