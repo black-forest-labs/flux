@@ -225,7 +225,7 @@ class BaseExporter(ABC):
         fp16=False,
         tf32=False,
         bf16=False,
-        max_batch=16,
+        max_batch=8,
         verbose=True,
         do_constant_folding=True,
     ):
