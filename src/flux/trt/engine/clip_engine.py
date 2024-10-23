@@ -54,7 +54,8 @@ class CLIPEngine(CLIPMixin, BaseEngine):
             )
             feed_dict = {"input_ids": feed_dict["input_ids"].to(torch.int32)}
 
-        text_embeddings = self.infer(feed_dict)["text_embeddings"].clone()
+            text_embeddings = self.infer(feed_dict)["text_embeddings"].clone()
+
         return text_embeddings
 
 
