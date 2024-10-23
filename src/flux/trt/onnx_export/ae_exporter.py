@@ -35,6 +35,8 @@ class AEExporter(AEMixin, BaseExporter):
         super().__init__(
             z_channels=model.params.z_channels,
             compression_factor=compression_factor,
+            scale_factor=model.params.scale_factor,
+            shift_factor=model.params.shift_factor,
             model=model,
             fp16=fp16,
             tf32=tf32,
