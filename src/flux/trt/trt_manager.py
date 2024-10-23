@@ -36,7 +36,7 @@ class TRTManager:
         return self.__stages__
 
     @property
-    def model_to_engine_class(self) -> dict:
+    def model_to_engine_class(self) -> dict[str, type[Union[BaseMixin, BaseEngine]]]:
         return {
             "clip": CLIPEngine,
             "flux_transformer": FluxEngine,
@@ -45,7 +45,7 @@ class TRTManager:
         }
 
     @property
-    def model_to_exporter_dict(self) -> dict[str, type[BaseExporter]]:
+    def model_to_exporter_dict(self) -> dict[str, type[Union[BaseMixin, BaseExporter]]]:
         return {
             "ae": AEExporter,
             "clip": CLIPExporter,
@@ -148,23 +148,23 @@ class TRTManager:
             config: dict[str, Any] = {}
             config["model_suffix"] = ""
 
-            config["onnx_path"] = TRTBuilder._get_onnx_path(
+            config["onnx_path"] = TRTManager._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 opt=False,
                 suffix=config["model_suffix"],
             )
-            config["onnx_opt_path"] = TRTBuilder._get_onnx_path(
+            config["onnx_opt_path"] = TRTManager._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
             )
-            config["engine_path"] = TRTBuilder._get_engine_path(
+            config["engine_path"] = TRTManager._get_engine_path(
                 model_name=model_name,
                 engine_dir=engine_dir,
                 suffix=config["model_suffix"],
             )
-            config["state_dict_path"] = TRTBuilder._get_state_dict_path(
+            config["state_dict_path"] = TRTManager._get_state_dict_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
@@ -183,17 +183,9 @@ class TRTManager:
             onnx_exporter_class = self.model_to_exporter_dict[model_name]
 
             if model_name in {"ae", "t5"}:
-                if self.fp16:
-                    should_be_dtype = torch.float16
-                elif self.bf16:
-                    should_be_dtype = torch.bfloat16
-                else:
-                    should_be_dtype = torch.float32
-
                 # traced in tf32 for numerical stability
                 # pass expected dtype for cast the final output/input
                 onnx_exporter = onnx_exporter_class(
-                    should_be_dtype=should_be_dtype,
                     model=model,
                     tf32=True,
                     max_batch=self.max_batch,
@@ -203,7 +195,6 @@ class TRTManager:
 
             else:
                 onnx_exporter = onnx_exporter_class(
-                    should_be_dtype=should_be_dtype,
                     model=model,
                     fp16=self.fp16,
                     bf16=self.bf16,
