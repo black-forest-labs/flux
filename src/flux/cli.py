@@ -19,7 +19,12 @@ from flux.util import (
     load_t5,
 )
 from transformers import pipeline
-from flux.trt.builders import TRTBuilder
+
+from flux.trt.trt_manager import TRTManager
+import tensorrt
+
+from cuda import cudart
+
 
 NSFW_THRESHOLD = 0.85
 
@@ -189,36 +194,48 @@ def main(
 
         torch.cuda.empty_cache()
 
-        builder = TRTBuilder(
+        trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,
         )
 
-        engines = builder.load_engines(
+        engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
-                "flux_transformer": model,
+                # "flux_transformer": model,
                 "t5": t5,
                 "ae": ae,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             onnx_opset=19,
-            opt_batch_size=2,
+            opt_batch_size=1,
             opt_image_height=height,
             opt_image_width=width,
         )
+        trt_ctx_manager.init_runtime()
+        stream = cudart.cudaStreamCreate()[1]
+
+        for engine in engines.values():
+            engine.load(stream)
+
+        calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+        _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
 
         for engine_name, engine in engines.items():
-            engine.load()
-
-        calculate_max_device_memory = builder.calculate_max_device_memory(engines)
-
-        for engine_name, engine in engines.items():
-            engine.activate(calculate_max_device_memory)
-            shape_dict = engine.get_shape_dict(batch_size = 1, image_height = height, image_width = width)
+            engine.activate(shared_device_memory)
+            shape_dict = engine.get_shape_dict(
+                batch_size=1,
+                image_height=height,
+                image_width=width,
+            )
             engine.allocate_buffers(shape_dict)
 
+        ae = engines["ae"]
+        # model = engines["flux_transformer"]
+        model = model.cuda()
+        clip = engines["clip"]
+        t5 = engines["t5"]
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
