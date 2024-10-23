@@ -18,8 +18,6 @@ from typing import Any
 from collections import OrderedDict
 import gc
 
-import numpy as np
-
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import (
@@ -50,20 +48,22 @@ def CUASSERT(cuda_ret):
     return None
 
 
-# Map of TensorRT dtype -> torch dtype
-trt_to_torch_dtype_dict = {
-    trt.DataType.BOOL: torch.bool,
-    trt.DataType.UINT8: torch.uint8,
-    trt.DataType.INT8: torch.int8,
-    trt.DataType.INT32: torch.int32,
-    trt.DataType.INT64: torch.int64,
-    trt.DataType.HALF: torch.float16,
-    trt.DataType.FLOAT: torch.float32,
-    trt.DataType.BF16: torch.bfloat16,
-}
-
 
 class BaseEngine(ABC):
+
+    @property
+    def trt_to_torch_dtype_dict(self):
+        return {
+            trt.DataType.BOOL: torch.bool,
+            trt.DataType.UINT8: torch.uint8,
+            trt.DataType.INT8: torch.int8,
+            trt.DataType.INT32: torch.int32,
+            trt.DataType.INT64: torch.int64,
+            trt.DataType.HALF: torch.float16,
+            trt.DataType.FLOAT: torch.float32,
+            trt.DataType.BF16: torch.bfloat16,
+        }
+
     def __init__(
         self,
         engine_path: str,
@@ -178,7 +178,7 @@ class BaseEngine(ABC):
 
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, tensor_shape)
-            tensor_dtype = trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(tensor_name)]
+            tensor_dtype = self.trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(tensor_name)]
             tensor = torch.empty(
                 tensor_shape,
                 dtype=tensor_dtype,
