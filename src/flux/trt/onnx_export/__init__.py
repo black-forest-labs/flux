@@ -17,13 +17,13 @@
 from flux.trt.onnx_export.base_exporter import BaseExporter
 from flux.trt.onnx_export.vae_exporter import VAEExporter
 from flux.trt.onnx_export.clip_exporter import CLIPExporter
-from flux.trt.onnx_export.flux_exporter import FluxExporter
+from flux.trt.onnx_export.transformer_exporter import TransformerExporter
 from flux.trt.onnx_export.t5_exporter import T5Exporter
 
 __all__ = [
     "BaseExporter",
     "VAEExporter",
     "CLIPExporter",
-    "FluxExporter",
+    "TransformerExporter",
     "T5Exporter",
 ]
