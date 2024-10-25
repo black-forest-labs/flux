@@ -54,9 +54,9 @@ class CLIPEngine(CLIPMixin, BaseEngine):
             )
             feed_dict = {"input_ids": feed_dict["input_ids"].to(torch.int32)}
 
-            text_embeddings = self.infer(feed_dict)["text_embeddings"].clone()
+            pooled_embeddings = self.infer(feed_dict)["pooled_embeddings"].clone()
 
-        return text_embeddings
+        return pooled_embeddings
 
 
     def get_shape_dict(
@@ -67,5 +67,5 @@ class CLIPEngine(CLIPMixin, BaseEngine):
     ) -> dict[str, tuple]:
         return {
             "input_ids": (batch_size, self.text_maxlen),
-            "text_embeddings": (batch_size, self.hidden_size),
+            "pooled_embeddings": (batch_size, self.hidden_size),
         }

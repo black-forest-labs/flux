@@ -51,12 +51,12 @@ class CLIPExporter(CLIPMixin, BaseExporter):
         return ["input_ids"]
 
     def get_output_names(self):
-        return ["text_embeddings"]
+        return ["pooled_embeddings"]
 
     def get_dynamic_axes(self):
         dynamic_axes = {
             "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
+            "pooled_embeddings": {0: "B"},
         }
         return dynamic_axes
 
