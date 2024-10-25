@@ -82,8 +82,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             "encoder_hidden_states": {0: "B"},
             "pooled_projections": {0: "B"},
             "timestep": {0: "B"},
-            "img_ids": {0: "B", 1: "latent_dim"},
-            "txt_ids": {0: "B"},
+            "img_ids": {0: "latent_dim"},
         }
         if self.guidance_embed:
             dynamic_axes["guidance"] = {0: "B"}
@@ -126,9 +125,9 @@ class TransformerExporter(TransformerMixin, BaseExporter):
                 (max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
             ],
             "encoder_hidden_states": [
-                (min_batch, 256, self.context_in_dim),
-                (batch_size, 256, self.context_in_dim),
-                (max_batch, 256, self.context_in_dim),
+                (min_batch, self.text_maxlen, self.context_in_dim),
+                (batch_size, self.text_maxlen, self.context_in_dim),
+                (max_batch, self.text_maxlen, self.context_in_dim),
             ],
             "pooled_projections": [
                 (min_batch, self.vec_in_dim),
@@ -136,14 +135,14 @@ class TransformerExporter(TransformerMixin, BaseExporter):
                 (max_batch, self.vec_in_dim),
             ],
             "img_ids": [
-                (min_batch, (latent_height // 2) * (latent_width // 2), 3),
-                (batch_size, (latent_height // 2) * (latent_width // 2), 3),
-                (max_batch, (latent_height // 2) * (latent_width // 2), 3),
+                ((latent_height // 2) * (latent_width // 2), 3),
+                ((latent_height // 2) * (latent_width // 2), 3),
+                ((latent_height // 2) * (latent_width // 2), 3),
             ],
             "txt_ids": [
-                (min_batch, 256, 3),
-                (batch_size, 256, 3),
-                (max_batch, 256, 3),
+                (self.text_maxlen, 3),
+                (self.text_maxlen, 3),
+                (self.text_maxlen, 3),
             ],
             "timestep": [(min_batch,), (batch_size,), (max_batch,)],
         }
@@ -186,14 +185,8 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             torch.randn(batch_size, self.text_maxlen, self.context_in_dim, dtype=dtype, device=self.device) * 0.5,
             torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
             torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
-            torch.zeros(
-                batch_size,
-                (latent_height // 2) * (latent_width // 2),
-                3,
-                dtype=torch.float32,
-                device=self.device,
-            ),
-            torch.zeros(batch_size, self.text_maxlen, 3, dtype=torch.float32, device=self.device),
+            torch.zeros((latent_height // 2) * (latent_width // 2), 3, dtype=torch.float32, device=self.device),
+            torch.zeros(self.text_maxlen, 3, dtype=torch.float32, device=self.device),
         )
 
         if self.guidance_embed:
