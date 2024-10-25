@@ -14,14 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from math import ceil
+
+import torch
+
 from flux.model import Flux
+from flux.trt.mixin import TransformerMixin
 from flux.trt.onnx_export.base_exporter import BaseExporter
-from flux.trt.mixin import FluxMixin
 
 
-class FluxExporter(FluxMixin, BaseExporter):
+class TransformerExporter(TransformerMixin, BaseExporter):
     def __init__(
         self,
         model: Flux,
@@ -59,12 +61,12 @@ class FluxExporter(FluxMixin, BaseExporter):
 
     def get_input_names(self):
         inputs = [
-            "img",
+            "hidden_states",
+            "encoder_hidden_states",
+            "pooled_projections",
+            "timestep",
             "img_ids",
-            "txt",
             "txt_ids",
-            "timesteps",
-            "y",
         ]
         if self.guidance_embed:
             inputs.append("guidance")
@@ -76,17 +78,17 @@ class FluxExporter(FluxMixin, BaseExporter):
 
     def get_dynamic_axes(self):
         dynamic_axes = {
-            "img": {0: "B", 1: "latent_dim"},
+            "hidden_states": {0: "B", 1: "latent_dim"},
+            "encoder_hidden_states": {0: "B"},
+            "pooled_projections": {0: "B"},
+            "timestep": {0: "B"},
             "img_ids": {0: "B", 1: "latent_dim"},
-            "txt": {0: "B"},
             "txt_ids": {0: "B"},
-            "timesteps": {0: "B"},
-            "y": {0: "B"},
         }
         if self.guidance_embed:
             dynamic_axes["guidance"] = {0: "B"}
 
-        dynamic_axes["latent"] = {0: "B", 1: "latent_dim"}
+        # dynamic_axes["latent"] = {0: "B", 1: "latent_dim"}
         return dynamic_axes
 
     def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
@@ -118,32 +120,32 @@ class FluxExporter(FluxMixin, BaseExporter):
             image_width=image_width,
         )
         input_profile = {
-            "img": [
+            "hidden_states": [
                 (min_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
                 (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
                 (max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+            ],
+            "encoder_hidden_states": [
+                (min_batch, 256, self.context_in_dim),
+                (batch_size, 256, self.context_in_dim),
+                (max_batch, 256, self.context_in_dim),
+            ],
+            "pooled_projections": [
+                (min_batch, self.vec_in_dim),
+                (batch_size, self.vec_in_dim),
+                (max_batch, self.vec_in_dim),
             ],
             "img_ids": [
                 (min_batch, (latent_height // 2) * (latent_width // 2), 3),
                 (batch_size, (latent_height // 2) * (latent_width // 2), 3),
                 (max_batch, (latent_height // 2) * (latent_width // 2), 3),
             ],
-            "txt": [
-                (min_batch, 256, self.context_in_dim),
-                (batch_size, 256, self.context_in_dim),
-                (max_batch, 256, self.context_in_dim),
-            ],
             "txt_ids": [
                 (min_batch, 256, 3),
                 (batch_size, 256, 3),
                 (max_batch, 256, 3),
             ],
-            "timesteps": [(min_batch,), (batch_size,), (max_batch,)],
-            "y": [
-                (min_batch, self.vec_in_dim),
-                (batch_size, self.vec_in_dim),
-                (max_batch, self.vec_in_dim),
-            ],
+            "timestep": [(min_batch,), (batch_size,), (max_batch,)],
         }
 
         if self.guidance_embed:
@@ -181,6 +183,9 @@ class FluxExporter(FluxMixin, BaseExporter):
                 dtype=dtype,
                 device=self.device,
             ),
+            torch.randn(batch_size, self.text_maxlen, self.context_in_dim, dtype=dtype, device=self.device) * 0.5,
+            torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
+            torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
             torch.zeros(
                 batch_size,
                 (latent_height // 2) * (latent_width // 2),
@@ -188,12 +193,9 @@ class FluxExporter(FluxMixin, BaseExporter):
                 dtype=torch.float32,
                 device=self.device,
             ),
-            torch.randn(batch_size, 256, self.context_in_dim, dtype=dtype, device=self.device) * 0.5,
-            torch.zeros(batch_size, 256, 3, dtype=torch.float32, device=self.device),
-            torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
-            torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
+            torch.zeros(batch_size, self.text_maxlen, 3, dtype=torch.float32, device=self.device),
         )
 
         if self.guidance_embed:
-            inputs = inputs + (torch.full((batch_size,), 3.5, dtype=dtype, device=self.device),)
+            inputs = inputs + (torch.full((batch_size,), 3.5, dtype=torch.float32, device=self.device),)
         return inputs
