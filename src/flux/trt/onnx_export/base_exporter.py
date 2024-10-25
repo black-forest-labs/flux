@@ -335,7 +335,7 @@ class BaseExporter(ABC):
                         dynamic_axes=self.get_dynamic_axes(),
                     )
 
-                with torch.inference_mode(), torch.autocast("cuda"):
+                with torch.inference_mode():
                     export_onnx(self.get_model())
             else:
                 print(f"[I] Found cached ONNX model: {onnx_path}")
