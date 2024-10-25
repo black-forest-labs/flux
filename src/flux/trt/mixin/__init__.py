@@ -15,16 +15,15 @@
 # limitations under the License.
 
 from flux.trt.mixin.base_mixin import BaseMixin
-from flux.trt.mixin.vae_mixin import VAEMixin
 from flux.trt.mixin.clip_mixin import CLIPMixin
-from flux.trt.mixin.flux_mixin import FluxMixin
 from flux.trt.mixin.t5_mixin import T5Mixin
-
+from flux.trt.mixin.transformer_mixin import TransformerMixin
+from flux.trt.mixin.vae_mixin import VAEMixin
 
 __all__ = [
     "BaseMixin",
     "VAEMixin",
     "CLIPMixin",
-    "FluxMixin",
+    "TransformerMixin",
     "T5Mixin",
 ]
