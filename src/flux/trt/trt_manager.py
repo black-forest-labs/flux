@@ -21,9 +21,9 @@ import torch
 import tensorrt as trt
 from typing import Any, Union
 
-from flux.trt.onnx_export import BaseExporter, AEExporter, CLIPExporter, FluxExporter, T5Exporter
+from flux.trt.onnx_export import BaseExporter, CLIPExporter, FluxExporter, T5Exporter, VAEExporter
 from flux.trt.mixin import BaseMixin
-from flux.trt.engine import BaseEngine, AEEngine, CLIPEngine, FluxEngine, T5Engine
+from flux.trt.engine import BaseEngine, CLIPEngine, FluxEngine, T5Engine, VAEEngine
 
 TRT_LOGGER = trt.Logger()
 
@@ -41,16 +41,16 @@ class TRTManager:
             "clip": CLIPEngine,
             "flux_transformer": FluxEngine,
             "t5": T5Engine,
-            "ae": AEEngine,
+            "vae": VAEEngine,
         }
 
     @property
     def model_to_exporter_dict(self) -> dict[str, type[Union[BaseMixin, BaseExporter]]]:
         return {
-            "ae": AEExporter,
             "clip": CLIPExporter,
             "flux_transformer": FluxExporter,
             "t5": T5Exporter,
+            "vae": VAEExporter,
         }
 
     def __init__(

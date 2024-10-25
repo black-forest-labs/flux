@@ -18,10 +18,10 @@ import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
 from flux.trt.onnx_export.base_exporter import BaseExporter
-from flux.trt.mixin import AEMixin
+from flux.trt.mixin import VAEMixin
 
 
-class AEExporter(AEMixin, BaseExporter):
+class VAEExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: AutoEncoder,

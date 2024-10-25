@@ -20,7 +20,7 @@ from math import ceil
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
-class AEMixin(BaseMixin):
+class VAEMixin(BaseMixin):
     def __init__(
         self,
         z_channels: int,
