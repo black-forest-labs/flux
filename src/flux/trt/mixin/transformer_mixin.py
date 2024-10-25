@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
 from math import ceil
+from typing import Any
+
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
-class FluxMixin(BaseMixin):
+class TransformerMixin(BaseMixin):
     def __init__(
         self,
         guidance_embed: bool,
@@ -28,6 +29,7 @@ class FluxMixin(BaseMixin):
         in_channels: int,
         out_channels: int,
         compression_factor: int,
+        text_maxlen=256,
         *args,
         **kwargs,
     ) -> None:
@@ -38,6 +40,7 @@ class FluxMixin(BaseMixin):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.compression_factor = compression_factor
+        self.text_maxlen = text_maxlen
 
     def get_mixin_params(self) -> dict[str, Any]:
         """helper class that return the parameters used for construction"""
@@ -48,6 +51,7 @@ class FluxMixin(BaseMixin):
             "in_channels": self.in_channels,
             "out_channels": self.out_channels,
             "compression_factor": self.compression_factor,
+            "text_maxlen": self.text_maxlen,
         }
 
     def get_latent_dims(
