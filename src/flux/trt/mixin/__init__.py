@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from flux.trt.mixin.base_mixin import BaseMixin
-from flux.trt.mixin.ae_mixin import AEMixin
+from flux.trt.mixin.vae_mixin import VAEMixin
 from flux.trt.mixin.clip_mixin import CLIPMixin
 from flux.trt.mixin.flux_mixin import FluxMixin
 from flux.trt.mixin.t5_mixin import T5Mixin
@@ -23,7 +23,7 @@ from flux.trt.mixin.t5_mixin import T5Mixin
 
 __all__ = [
     "BaseMixin",
-    "AEMixin",
+    "VAEMixin",
     "CLIPMixin",
     "FluxMixin",
     "T5Mixin",

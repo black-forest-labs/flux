@@ -17,10 +17,10 @@
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
-from flux.trt.mixin import AEMixin
+from flux.trt.mixin import VAEMixin
 
 
-class AEEngine(AEMixin, BaseEngine):
+class VAEEngine(VAEMixin, BaseEngine):
     def __init__(
         self,
         z_channels: int,
