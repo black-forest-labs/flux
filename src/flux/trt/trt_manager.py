@@ -21,15 +21,15 @@ import torch
 import tensorrt as trt
 from typing import Any, Union
 
-from flux.trt.onnx_export import BaseExporter, CLIPExporter, FluxExporter, T5Exporter, VAEExporter
+from flux.trt.onnx_export import BaseExporter, CLIPExporter, TransformerExporter, T5Exporter, VAEExporter
 from flux.trt.mixin import BaseMixin
-from flux.trt.engine import BaseEngine, CLIPEngine, FluxEngine, T5Engine, VAEEngine
+from flux.trt.engine import BaseEngine, CLIPEngine, TransformerEngine, T5Engine, VAEEngine
 
 TRT_LOGGER = trt.Logger()
 
 
 class TRTManager:
-    __stages__ = ["clip", "t5", "flux_transformer", "ae"]
+    __stages__ = ["clip", "t5", "transformer", "ae"]
 
     @property
     def stages(self) -> list[str]:
@@ -39,7 +39,7 @@ class TRTManager:
     def model_to_engine_class(self) -> dict[str, type[Union[BaseMixin, BaseEngine]]]:
         return {
             "clip": CLIPEngine,
-            "flux_transformer": FluxEngine,
+            "transformer": TransformerEngine,
             "t5": T5Engine,
             "vae": VAEEngine,
         }
@@ -48,7 +48,7 @@ class TRTManager:
     def model_to_exporter_dict(self) -> dict[str, type[Union[BaseMixin, BaseExporter]]]:
         return {
             "clip": CLIPExporter,
-            "flux_transformer": FluxExporter,
+            "transformer": TransformerExporter,
             "t5": T5Exporter,
             "vae": VAEExporter,
         }
@@ -203,6 +203,9 @@ class TRTManager:
                     verbose=self.verbose,
                 )
                 onnx_exporters[model_name] = onnx_exporter
+
+        if "transformer" in onnx_exporters and "t5" in onnx_exporters:
+            onnx_exporters["transformer"].text_maxlen = onnx_exporters["t5"].text_maxlen
 
         return onnx_exporters
 
