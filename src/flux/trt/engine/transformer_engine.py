@@ -68,12 +68,12 @@ class TransformerEngine(TransformerMixin, BaseEngine):
         )
 
         shape_dict = {
-            "img": (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
-            "img_ids": (batch_size, (latent_height // 2) * (latent_width // 2), 3),
-            "txt": (batch_size, 256, self.context_in_dim),
-            "txt_ids": (batch_size, 256, 3),
-            "timesteps": (batch_size,),
-            "y": (batch_size, self.vec_in_dim),
+            "hidden_states": (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
+            "encoder_hidden_states": (batch_size, self.text_maxlen, self.context_in_dim),
+            "pooled_projections": (batch_size, self.vec_in_dim),
+            "timestep": (batch_size,),
+            "img_ids": ((latent_height // 2) * (latent_width // 2), 3),
+            "txt_ids": (self.text_maxlen, 3),
             "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.out_channels),
         }
 
