@@ -17,10 +17,10 @@
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine
-from flux.trt.mixin import FluxMixin
+from flux.trt.mixin import TransformerMixin
 
 
-class FluxEngine(FluxMixin, BaseEngine):
+class TransformerEngine(TransformerMixin, BaseEngine):
     def __init__(
         self,
         guidance_embed: bool,
@@ -29,6 +29,7 @@ class FluxEngine(FluxMixin, BaseEngine):
         in_channels: int,
         out_channels: int,
         compression_factor: int,
+        text_maxlen: int,
         engine_path: str,
     ):
         super().__init__(
@@ -38,6 +39,7 @@ class FluxEngine(FluxMixin, BaseEngine):
             in_channels=in_channels,
             out_channels=out_channels,
             compression_factor=compression_factor,
+            text_maxlen=text_maxlen,
             engine_path=engine_path,
         )
 
