@@ -29,7 +29,7 @@ TRT_LOGGER = trt.Logger()
 
 
 class TRTManager:
-    __stages__ = ["clip", "t5", "transformer", "ae"]
+    __stages__ = ["clip", "t5", "transformer", "vae"]
 
     @property
     def stages(self) -> list[str]:
