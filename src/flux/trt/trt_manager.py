@@ -56,7 +56,7 @@ class TRTManager:
     def __init__(
         self,
         device: str | torch.device,
-        max_batch=16,
+        max_batch=8,
         fp16=False,
         tf32=False,
         bf16=False,
