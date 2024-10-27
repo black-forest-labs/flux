@@ -68,4 +68,6 @@ class CLIPEngine(CLIPMixin, BaseEngine):
         return {
             "input_ids": (batch_size, self.text_maxlen),
             "pooled_embeddings": (batch_size, self.hidden_size),
+            # Onnx model coming from HF has also this input
+            "text_embeddings": (batch_size, self.text_maxlen, self.hidden_size),
         }
