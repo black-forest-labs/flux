@@ -21,6 +21,28 @@ from flux.trt.mixin import TransformerMixin
 
 
 class TransformerEngine(TransformerMixin, BaseEngine):
+    __dd_to_flux__ = {
+        "hidden_states": "img",
+        "img_ids": "img_ids",
+        "encoder_hidden_states": "txt",
+        "pooled_projections": "y",
+        "txt_ids": "txt_ids",
+        "timestep": "timesteps",
+        "guidance": "guidance",
+        "latent": "latent",
+    }
+
+    __flux_to_dd__ = {
+        "img": "hidden_states",
+        "img_ids": "img_ids",
+        "txt": "encoder_hidden_states",
+        "y": "pooled_projections",
+        "txt_ids": "txt_ids",
+        "timesteps": "timestep",
+        "guidance": "guidance",
+        "latent": "latent",
+    }
+
     def __init__(
         self,
         guidance_embed: bool,
@@ -43,15 +65,27 @@ class TransformerEngine(TransformerMixin, BaseEngine):
             engine_path=engine_path,
         )
 
+    @property
+    def dd_to_flux(self):
+        return TransformerEngine.__dd_to_flux__
+
+    @property
+    def flux_to_dd(self):
+        return TransformerEngine.__flux_to_dd__
+
     def __call__(
         self,
         **kwargs,
     ) -> torch.Tensor:
         feed_dict = {
-            tensor_name: kwargs[tensor_name].to(dtype=tensor_value.dtype)
+            tensor_name: kwargs[self.dd_to_flux[tensor_name]].to(dtype=tensor_value.dtype)
             for tensor_name, tensor_value in self.tensors.items()
             if tensor_name != "latent"
         }
+
+        #remove batch dim to match demo-diffusion
+        feed_dict["img_ids"] = feed_dict["img_ids"][0]
+        feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
 
         latent = self.infer(feed_dict=feed_dict)["latent"].clone()
         return latent
