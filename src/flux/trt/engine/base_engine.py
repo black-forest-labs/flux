@@ -91,7 +91,7 @@ class BaseEngine(ABC):
         self,
         onnx_path: str,
         strongly_typed=False,
-        fp16=True,
+        fp16=False,
         bf16=False,
         tf32=False,
         int8=False,
