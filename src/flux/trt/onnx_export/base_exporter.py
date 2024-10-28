@@ -242,8 +242,6 @@ class BaseExporter(ABC):
         self.max_batch = max_batch
         self.extra_output_names = []
 
-        assert sum([self.fp16, self.bf16, self.tf32]) <= 1, "too many dtype specified. only one is allowed"
-
     @property
     def device(self):
         return next(self.model.parameters()).device
