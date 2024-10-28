@@ -28,7 +28,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         self,
         model: Flux,
         fp16=False,
-        tf32=False,
+        tf32=True,
         bf16=False,
         max_batch=8,
         verbose=True,
