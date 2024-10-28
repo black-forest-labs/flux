@@ -58,8 +58,8 @@ class TRTManager:
         device: str | torch.device,
         max_batch=8,
         fp16=False,
-        tf32=False,
         bf16=False,
+        tf32=True,
         static_batch=True,
         verbose=True,
         **kwargs,
@@ -67,8 +67,8 @@ class TRTManager:
         self.device = device
         self.max_batch = max_batch
         self.fp16 = fp16
-        self.tf32 = tf32
         self.bf16 = bf16
+        self.tf32 = tf32
         self.static_batch = static_batch
         self.verbose = verbose
         self.runtime: trt.Runtime = None
@@ -182,12 +182,14 @@ class TRTManager:
         for model_name, model in models.items():
             onnx_exporter_class = self.model_to_exporter_dict[model_name]
 
-            if model_name in {"ae", "t5"}:
+            if model_name in {"vae", "t5"}:
                 # traced in tf32 for numerical stability
                 # pass expected dtype for cast the final output/input
                 onnx_exporter = onnx_exporter_class(
                     model=model,
-                    tf32=True,
+                    fp16=False,
+                    bf16=self.bf16,
+                    tf32=self.tf32,
                     max_batch=self.max_batch,
                     verbose=self.verbose,
                 )
