@@ -77,17 +77,23 @@ class TransformerEngine(TransformerMixin, BaseEngine):
         self,
         **kwargs,
     ) -> torch.Tensor:
-        feed_dict = {
-            tensor_name: kwargs[self.dd_to_flux[tensor_name]].to(dtype=tensor_value.dtype)
-            for tensor_name, tensor_value in self.tensors.items()
-            if tensor_name != "latent"
-        }
+        with torch.inference_mode():
+            feed_dict = {
+                tensor_name: kwargs[self.dd_to_flux[tensor_name]].to(dtype=tensor_value.dtype)
+                for tensor_name, tensor_value in self.tensors.items()
+                if tensor_name != "latent"
+            }
 
-        #remove batch dim to match demo-diffusion
-        feed_dict["img_ids"] = feed_dict["img_ids"][0]
-        feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
+            #remove batch dim to match demo-diffusion
+            feed_dict["img_ids"] = feed_dict["img_ids"][0]
+            feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
 
-        latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+            latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+
+        torch.save(
+            {"inputs": feed_dict, "output": latent},
+            "flux.pt",
+        )
         return latent
 
     def get_shape_dict(
