@@ -45,17 +45,8 @@ class VAEEngine(VAEMixin, BaseEngine):
 
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
-        assert z.device == self.tensors["latent"].device, "device mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].device,
-            z.device,
-        )
-
-        assert z.dtype == self.tensors["latent"].dtype, "dtype mismatch | expected {}; actual {}".format(
-            self.tensors["latent"].dtype,
-            z.dtype,
-        )
-        z = z / self.scale_factor + self.shift_factor
-
+        z = z.to(dtype=self.tensors["latent"].dtype)
+        z = (z / self.scale_factor) + self.shift_factor
         feed_dict = {"latent": z}
         images = self.infer(feed_dict=feed_dict)["images"].clone()
         return images
