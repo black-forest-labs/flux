@@ -195,16 +195,16 @@ def main(
         torch.cuda.empty_cache()
 
         trt_ctx_manager = TRTManager(
-            bf16=True,
+            fp16=True,
             device=torch_device,
         )
 
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
-                # "flux_transformer": model,
+                "transformer": model,
                 "t5": t5,
-                "ae": ae,
+                "vae": ae,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
@@ -231,9 +231,8 @@ def main(
             )
             engine.allocate_buffers(shape_dict)
 
-        ae = engines["ae"]
-        # model = engines["flux_transformer"]
-        model = model.cuda()
+        ae = engines["vae"]
+        model = engines["transformer"]
         clip = engines["clip"]
         t5 = engines["t5"]
 
