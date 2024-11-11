@@ -20,7 +20,7 @@ import torch
 
 from flux.model import Flux
 from flux.trt.mixin import TransformerMixin
-from flux.trt.onnx_export.base_exporter import BaseExporter
+from flux.trt.onnx_export.base_exporter import BaseExporter, FluxModelWrapper
 
 
 class TransformerExporter(TransformerMixin, BaseExporter):
@@ -42,7 +42,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             in_channels=model.params.in_channels,
             out_channels=model.out_channels,
             compression_factor=compression_factor,
-            model=model,
+            model=FluxModelWrapper(model),
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,

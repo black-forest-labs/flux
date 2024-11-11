@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 from transformers import PreTrainedModel
 
 import onnx
@@ -39,7 +39,7 @@ from .utils_modelopt import (
 )
 
 from flux.modules.conditioner import HFEmbedder
-
+from flux.model import Flux
 
 class TransformersModelWrapper(torch.nn.Module):
     def __init__(self, model: HFEmbedder, output_name: str):
@@ -47,7 +47,7 @@ class TransformersModelWrapper(torch.nn.Module):
         self.model: PreTrainedModel = model.hf_module
         self.output_name = output_name
 
-    def forward(self, input_ids, *args):
+    def forward(self, input_ids: Tensor, *args):
         outputs = self.model.forward(
             input_ids=input_ids,
             attention_mask=None,
@@ -55,6 +55,36 @@ class TransformersModelWrapper(torch.nn.Module):
         )
         text_embeddings = outputs[self.output_name]
         return text_embeddings
+
+
+class FluxModelWrapper(torch.nn.Module):
+    def __init__(self, model: Flux):
+        super().__init__()
+        self.model = model
+
+    def forward(
+        self,
+        hidden_states: Tensor,
+        encoder_hidden_states: Tensor,
+        pooled_projections: Tensor,
+        timestep: Tensor,
+        img_ids: Tensor,
+        txt_ids: Tensor,
+        guidance: Tensor | None = None,
+    ) -> Tensor:
+        # add batch dim to img_ids and txt_ids
+        img_ids = torch.unsqueeze(img_ids, 0)
+        txt_ids = torch.unsqueeze(txt_ids, 0)
+
+        return self.model(
+            img=hidden_states,
+            img_ids=img_ids,
+            txt=encoder_hidden_states,
+            txt_ids=txt_ids,
+            timesteps=timestep,
+            y=pooled_projections,
+            guidance=guidance,
+        )
 
 
 class Optimizer:
