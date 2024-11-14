@@ -263,6 +263,10 @@ class TRTManager:
         timing_cache,
         verbose: bool,
     ):
+        already_build = os.path.exists(model_config["engine_path"])
+        if already_build:
+            return
+
         update_output_names = (
             model_exporter.get_output_names() + model_exporter.extra_output_names
             if model_exporter.extra_output_names
