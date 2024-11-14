@@ -23,7 +23,7 @@ class CLIPMixin(BaseMixin):
         self,
         text_maxlen: int,
         hidden_size: int,
-        * args,
+        *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
