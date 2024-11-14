@@ -21,6 +21,7 @@ dependencies = [
   "protobuf",
   "requests",
   "invisible-watermark",
+  "ruff == 0.6.8",
 ]
 
 [project.optional-dependencies]

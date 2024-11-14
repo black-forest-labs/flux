@@ -94,23 +94,14 @@ class ImageRequest:
             elif interval is not None and not (1.0 <= interval <= 4.0):
                 raise ValueError(f"interval must be between 1 and 4, got {interval}")
             elif safety_tolerance is not None and not (0 <= safety_tolerance <= 6.0):
-                raise ValueError(
-                    f"safety_tolerance must be between 0 and 6, got {interval}"
-                )
+                raise ValueError(f"safety_tolerance must be between 0 and 6, got {interval}")
 
             if name == "flux.1-dev":
                 if interval is not None:
                     raise ValueError("Interval is not supported for flux.1-dev")
             if name == "flux.1.1-pro":
-                if (
-                    interval is not None
-                    or num_steps is not None
-                    or guidance is not None
-                ):
-                    raise ValueError(
-                        "Interval, num_steps and guidance are not supported for "
-                        "flux.1.1-pro"
-                    )
+                if interval is not None or num_steps is not None or guidance is not None:
+                    raise ValueError("Interval, num_steps and guidance are not supported for " "flux.1.1-pro")
 
         self.name = name
         self.request_json = {
@@ -124,9 +115,7 @@ class ImageRequest:
             "interval": interval,
             "safety_tolerance": safety_tolerance,
         }
-        self.request_json = {
-            key: value for key, value in self.request_json.items() if value is not None
-        }
+        self.request_json = {key: value for key, value in self.request_json.items() if value is not None}
 
         self.request_id: str | None = None
         self.result: dict | None = None
@@ -157,9 +146,7 @@ class ImageRequest:
         )
         result = response.json()
         if response.status_code != 200:
-            raise ApiException(
-                status_code=response.status_code, detail=result.get("detail")
-            )
+            raise ApiException(status_code=response.status_code, detail=result.get("detail"))
         self.request_id = response.json()["id"]
 
     def retrieve(self) -> dict:
@@ -181,17 +168,13 @@ class ImageRequest:
             )
             result = response.json()
             if "status" not in result:
-                raise ApiException(
-                    status_code=response.status_code, detail=result.get("detail")
-                )
+                raise ApiException(status_code=response.status_code, detail=result.get("detail"))
             elif result["status"] == "Ready":
                 self.result = result["result"]
             elif result["status"] == "Pending":
                 time.sleep(0.5)
             else:
-                raise ApiException(
-                    status_code=200, detail=f"API returned status '{result['status']}'"
-                )
+                raise ApiException(status_code=200, detail=f"API returned status '{result['status']}'")
         return self.result
 
     @property
