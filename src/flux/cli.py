@@ -193,14 +193,14 @@ def main(
         torch.cuda.empty_cache()
 
         trt_ctx_manager = TRTManager(
-            fp16=True,
+            bf16=True,
             device=torch_device,
         )
 
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
-                "transformer": model,
+                # "transformer": model,
                 "t5": t5,
                 "vae": ae,
             },
@@ -228,7 +228,7 @@ def main(
             engine.allocate_buffers(shape_dict, device=torch_device)
 
         ae = engines["vae"]
-        model = engines["transformer"]
+        # model = engines["transformer"]
         clip = engines["clip"]
         t5 = engines["t5"]
 
