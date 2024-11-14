@@ -31,13 +31,6 @@ streamlit = [
 gradio = [
   "gradio",
 ]
-trt = [
-  "tensorrt-cu12 >= 10.5.0",
-  "colored",
-  "cuda-python",
-  "transformers == 4.42.2",
-  "opencv-python == 4.8.0.74",
-]
 all = [
   "flux[streamlit]",
   "flux[gradio]",
