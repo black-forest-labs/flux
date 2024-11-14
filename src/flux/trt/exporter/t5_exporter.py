@@ -29,6 +29,7 @@ class T5Exporter(T5Mixin, BaseExporter):
         tf32=True,
         bf16=False,
         max_batch=8,
+        build_strongly_typed=True,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
@@ -42,7 +43,7 @@ class T5Exporter(T5Mixin, BaseExporter):
             max_batch=max_batch,
             verbose=verbose,
         )
-
+        self.build_strongly_typed = build_strongly_typed
         # set proper dtype
         self.prepare_model()
 
