@@ -56,8 +56,8 @@ cd $HOME/flux
 docker run --rm -it --gpus all -v $PWD:/workspace/flux nvcr.io/nvidia/pytorch:24.10-py3 /bin/bash
 # inside container
 cd /workspace/flux
-pip install -e ".[all,trt]"
-pip install -r requirements.txt
+pip install -e ".[all]"
+pip install -r trt_requirements.txt
 ```
 
 ### Models
