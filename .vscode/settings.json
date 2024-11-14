@@ -1,0 +1,88 @@
+{
+    // GENERAL
+    "editor.rulers": [
+        120
+    ],
+    "editor.formatOnSave": true,
+    "files.trimTrailingWhitespace": true,
+    "files.trimFinalNewlines": true,
+    "isort.args": [
+        "--profile",
+        "black"
+    ],
+    // MARKDOWN
+    "[markdown]": {
+        "editor.wordWrap": "bounded",
+        "editor.wordWrapColumn": 120,
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+    },
+    // JSONC
+    "[jsonc]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    // JSON
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    // YAML
+    "[yaml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    // YAML
+    "[yml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    // PYTHON
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+    },
+    "notebook.formatOnSave.enabled": true,
+    "notebook.codeActionsOnSave": {
+        "notebook.source.fixAll": "explicit",
+        "notebook.source.organizeImports": "explicit"
+    },
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "jupyter.debugJustMyCode": false,
+    "jupyter.notebookFileRoot": "${workspaceFolder}",
+    "notebook.output.textLineLimit": 1000,
+    "python.envFile": "${workspaceFolder}/.venv",
+    "ruff.nativeServer": "on",
+    "ruff.lineLength": 120,
+    "ruff.lint.select": [
+        "C",
+        "E",
+        "F",
+        "W"
+    ],
+    "python.languageServer": "Pylance",
+    // "python.testing.pytestEnabled": true,
+    // "python.testing.pytestArgs": [
+    //     "${workspaceFolder}/tests"
+    // ],
+    // "python.testing.unittestEnabled": false,
+    // CSPELL
+    "cSpell.words": [
+        "appendleft",
+        "colang",
+        "elif",
+        "interruptible",
+        "langchain",
+        "nemoguardrails",
+        "orwhen",
+        "popleft",
+        "simpleeval",
+        "statemachine",
+        "subflow",
+        "uids",
+        "UMIM",
+        "uniquify"
+    ],
+    "terminal.integrated.scrollback": 20000
+}
