@@ -17,7 +17,7 @@
 import torch
 from math import ceil
 from flux.modules.autoencoder import AutoEncoder
-from flux.trt.onnx_export.base_exporter import BaseExporter
+from flux.trt.exporter.base_exporter import BaseExporter
 from flux.trt.mixin import VAEMixin
 
 

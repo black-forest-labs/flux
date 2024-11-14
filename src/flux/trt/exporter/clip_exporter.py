@@ -15,13 +15,16 @@
 # limitations under the License.
 
 import torch
-
+from flux.trt.exporter.base_exporter import (
+    BaseExporter,
+    Optimizer,
+    TransformersModelWrapper,
+)
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.onnx_export.base_exporter import BaseExporter, TransformersModelWrapper
-from flux.trt.mixin import T5Mixin
+from flux.trt.mixin import CLIPMixin
 
 
-class T5Exporter(T5Mixin, BaseExporter):
+class CLIPExporter(CLIPMixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
@@ -31,11 +34,10 @@ class T5Exporter(T5Mixin, BaseExporter):
         max_batch=8,
         verbose=True,
     ):
-        exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
         super().__init__(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            model=exp_model,
+            model=TransformersModelWrapper(model=model, output_name="pooler_output"),
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
@@ -43,19 +45,18 @@ class T5Exporter(T5Mixin, BaseExporter):
             verbose=verbose,
         )
 
-        # set proper dtype
         self.prepare_model()
 
     def get_input_names(self):
         return ["input_ids"]
 
     def get_output_names(self):
-        return ["text_embeddings"]
+        return ["pooled_embeddings"]
 
     def get_dynamic_axes(self):
         dynamic_axes = {
             "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
+            "pooled_embeddings": {0: "B"},
         }
         return dynamic_axes
 
@@ -73,7 +74,8 @@ class T5Exporter(T5Mixin, BaseExporter):
     ) -> torch.Tensor:
         self.check_dims(batch_size)
         return torch.zeros(
-            (batch_size, self.text_maxlen),
+            batch_size,
+            self.text_maxlen,
             dtype=torch.int32,
             device=self.device,
         )
@@ -96,3 +98,19 @@ class T5Exporter(T5Mixin, BaseExporter):
                 (max_batch, self.text_maxlen),
             ]
         }
+
+    def optimize(self, onnx_graph, return_onnx=True):
+        opt = Optimizer(onnx_graph, verbose=self.verbose)
+        opt.info(self.name + ": original")
+        keep_outputs = [0]
+        opt.select_outputs(keep_outputs)
+        opt.cleanup()
+        opt.fold_constants()
+        opt.info(self.name + ": fold constants")
+        opt.infer_shapes()
+        opt.info(self.name + ": shape inference")
+        opt.select_outputs(keep_outputs, names=self.get_output_names())  # rename network outputs
+        opt.info(self.name + ": rename network output(s)")
+        opt_onnx_graph = opt.cleanup(return_onnx=return_onnx)
+        opt.info(self.name + ": finished")
+        return opt_onnx_graph

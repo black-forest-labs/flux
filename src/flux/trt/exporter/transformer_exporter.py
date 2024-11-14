@@ -20,7 +20,7 @@ import torch
 
 from flux.model import Flux
 from flux.trt.mixin import TransformerMixin
-from flux.trt.onnx_export.base_exporter import BaseExporter, FluxModelWrapper
+from flux.trt.exporter.base_exporter import BaseExporter, FluxModelWrapper
 
 
 class TransformerExporter(TransformerMixin, BaseExporter):

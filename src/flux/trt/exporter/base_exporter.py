@@ -30,6 +30,16 @@ from onnx import shape_inference
 from onnxconverter_common.float16 import convert_float_to_float16
 from polygraphy.backend.onnx.loader import fold_constants
 
+from polygraphy.backend.trt import (
+    CreateConfig,
+    ModifyNetworkOutputs,
+    Profile,
+    engine_from_network,
+    network_from_onnx_path,
+    save_engine,
+)
+from polygraphy.logger import G_LOGGER
+import tensorrt as trt
 
 from .utils_modelopt import (
     convert_zp_fp8,
@@ -404,3 +414,57 @@ class BaseExporter(ABC):
         onnx_opt_graph = opt.cleanup(return_onnx=return_onnx)
         opt.info(self.name + ": finished")
         return onnx_opt_graph
+
+    @staticmethod
+    def build(
+        engine_path: str,
+        onnx_path: str,
+        strongly_typed=False,
+        fp16=False,
+        bf16=False,
+        tf32=False,
+        int8=False,
+        fp8=False,
+        input_profile: dict[str, Any] | None = None,
+        enable_refit=False,
+        enable_all_tactics=False,
+        timing_cache=None,
+        update_output_names: list[str] | None = None,
+        native_instancenorm=True,
+        verbose=False,
+        **extra_build_args,
+    ):
+        print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
+        p = Profile()
+        if input_profile:
+            for name, dims in input_profile.items():
+                assert len(dims) == 3
+                p.add(name, min=dims[0], opt=dims[1], max=dims[2])
+
+        if not enable_all_tactics:
+            extra_build_args["tactic_sources"] = []
+
+        flags = []
+        if native_instancenorm:
+            flags.append(trt.OnnxParserFlag.NATIVE_INSTANCENORM)
+        network = network_from_onnx_path(onnx_path, flags=flags, strongly_typed=strongly_typed)
+        if update_output_names:
+            print(f"Updating network outputs to {update_output_names}")
+            network = ModifyNetworkOutputs(network, update_output_names)
+        with G_LOGGER.verbosity(G_LOGGER.EXTRA_VERBOSE if verbose else G_LOGGER.ERROR):
+            engine = engine_from_network(
+                network,
+                config=CreateConfig(
+                    fp16=fp16,
+                    bf16=bf16,
+                    tf32=tf32,
+                    int8=int8,
+                    fp8=fp8,
+                    refittable=enable_refit,
+                    profiles=[p],
+                    load_timing_cache=timing_cache,
+                    **extra_build_args,
+                ),
+                save_timing_cache=timing_cache,
+            )
+            save_engine(engine, path=engine_path)
