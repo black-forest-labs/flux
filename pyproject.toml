@@ -36,11 +36,7 @@ trt = [
   "colored",
   "cuda-python",
   "transformers == 4.42.2",
-  "onnx == 1.17.0",
-  "onnxruntime == 1.19.2",
-  "onnxruntime-gpu == 1.18.1",
   "opencv-python == 4.8.0.74",
-  "nvtx",
 ]
 all = [
   "flux[streamlit]",
