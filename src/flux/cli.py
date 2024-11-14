@@ -21,8 +21,6 @@ from flux.util import (
 from transformers import pipeline
 
 from flux.trt.trt_manager import TRTManager
-import tensorrt
-
 from cuda import cudart
 
 
@@ -118,7 +116,7 @@ def main(
         "a photo of a forest with mist swirling around the tree trunks. The word "
         '"FLUX" is painted over it in big, red brush strokes with visible texture'
     ),
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
     num_steps: int | None = None,
     loop: bool = False,
     guidance: float = 3.5,
@@ -229,7 +227,7 @@ def main(
                 image_height=height,
                 image_width=width,
             )
-            engine.allocate_buffers(shape_dict)
+            engine.allocate_buffers(shape_dict, device=torch_device)
 
         ae = engines["vae"]
         model = engines["transformer"]
