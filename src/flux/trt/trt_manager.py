@@ -240,8 +240,7 @@ class TRTManager:
 
     @staticmethod
     def _build_engine(
-        obj: BaseExporter,
-        engine: BaseEngine,
+        model_exporter: BaseExporter,
         model_config: dict[str, Any],
         opt_batch_size: int,
         opt_image_height: int,
@@ -252,22 +251,27 @@ class TRTManager:
         timing_cache,
         verbose: bool,
     ):
-        update_output_names = obj.get_output_names() + obj.extra_output_names if obj.extra_output_names else None
-        fp16amp = False if getattr(obj, "build_strongly_typed", False) else obj.fp16
-        tf32amp = obj.tf32
-        bf16amp = False if getattr(obj, "build_strongly_typed", False) else obj.bf16
-        strongly_typed = True if getattr(obj, "build_strongly_typed", False) else False
+        update_output_names = (
+            model_exporter.get_output_names() + model_exporter.extra_output_names
+            if model_exporter.extra_output_names
+            else None
+        )
+        fp16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.fp16
+        tf32amp = model_exporter.tf32
+        bf16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.bf16
+        strongly_typed = True if getattr(model_exporter, "build_strongly_typed", False) else False
 
         extra_build_args = {"verbose": verbose}
         extra_build_args["builder_optimization_level"] = optimization_level
 
-        engine.build(
-            model_config["onnx_opt_path"],
+        model_exporter.build(
+            engine_path=model_config["engine_path"],
+            onnx_path=model_config["onnx_opt_path"],
             strongly_typed=strongly_typed,
             fp16=fp16amp,
             tf32=tf32amp,
             bf16=bf16amp,
-            input_profile=obj.get_input_profile(
+            input_profile=model_exporter.get_input_profile(
                 batch_size=opt_batch_size,
                 image_height=opt_image_height,
                 image_width=opt_image_width,
@@ -311,10 +315,10 @@ class TRTManager:
             onnx_dir=onnx_dir,
         )
 
-        onnx_exporters = self._get_onnx_exporters(models)
+        exporters = self._get_exporters(models)
 
         # Export models to ONNX
-        for model_name, model_exporter in onnx_exporters.items():
+        for model_name, model_exporter in exporters.items():
             self._export_onnx(
                 model_exporter=model_exporter,
                 model_config=model_configs[model_name],
@@ -323,34 +327,31 @@ class TRTManager:
                 onnx_opset=onnx_opset,
             )
 
-        engines = {}
+        # Build TRT engines
+        for model_name, model_exporter in exporters.items():
+            self._build_engine(
+                model_exporter=model_exporter,
+                model_config=model_config,
+                opt_batch_size=opt_batch_size,
+                opt_image_height=opt_image_height,
+                opt_image_width=opt_image_width,
+                static_batch=self.static_batch,
+                optimization_level=optimization_level,
+                enable_all_tactics=enable_all_tactics,
+                timing_cache=timing_cache,
+                verbose=self.verbose,
+            )
 
-        # Build TensorRT engines
-        for model_name, obj in onnx_exporters.items():
+        # load TRT engines
+        engines = {}
+        for model_name, model_exporter in exporters.items():
             model_config = model_configs[model_name]
 
-            # TODO per model the proper class engine needs to be used
             engine_class = self.model_to_engine_class[model_name]
             engine = engine_class(
                 engine_path=model_config["engine_path"],
-                **obj.get_mixin_params(),
+                **model_exporter.get_mixin_params(),
             )
-
-            if not os.path.exists(model_config["engine_path"]):
-                self._build_engine(
-                    obj=obj,
-                    engine=engine,
-                    model_config=model_config,
-                    opt_batch_size=opt_batch_size,
-                    opt_image_height=opt_image_height,
-                    opt_image_width=opt_image_width,
-                    static_batch=self.static_batch,
-                    optimization_level=optimization_level,
-                    enable_all_tactics=enable_all_tactics,
-                    timing_cache=timing_cache,
-                    verbose=self.verbose,
-                )
-
             engines[model_name] = engine
 
         return engines
