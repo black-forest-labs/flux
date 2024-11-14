@@ -93,7 +93,7 @@ def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
                 continue
             _, steps = prompt.split()
             options.num_steps = int(steps)
-            print(f"Setting seed to {options.num_steps}")
+            print(f"Setting number of steps to {options.num_steps}")
         elif prompt.startswith("/q"):
             print("Quitting")
             return None

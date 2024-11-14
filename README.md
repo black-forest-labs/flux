@@ -1,5 +1,5 @@
 # FLUX
-by Black Forest Labs: https://blackforestlabs.ai
+by Black Forest Labs: https://blackforestlabs.ai. Documentation for our API can be found here: [docs.bfl.ml](https://docs.bfl.ml/).
 
 ![grid](assets/grid.jpg)
 
@@ -7,7 +7,7 @@ This repo contains minimal inference code to run text-to-image and image-to-imag
 
 ### Inference partners
 
-We are happy to partner with [Replicate](https://replicate.com/), [FAL](https://fal.ai/) and [Mystic](https://www.mystic.ai). You can sample our models using their services.
+We are happy to partner with [Replicate](https://replicate.com/), [FAL](https://fal.ai/), [Mystic](https://www.mystic.ai), and [Together](https://www.together.ai/). You can sample our models using their services.
 Below we list relevant links.
 
 Replicate:
@@ -30,6 +30,12 @@ Mystic:
 - https://www.mystic.ai/black-forest-labs/flux1-pro
 - https://www.mystic.ai/black-forest-labs/flux1-dev
 - https://www.mystic.ai/black-forest-labs/flux1-schnell
+
+Together:
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell-Free (ends December 31, 2024)
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1.1-pro
+- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-pro
 
 ## Local installation
 
@@ -82,7 +88,8 @@ history
 
 We are offering three models:
 
-- `FLUX.1 [pro]` the base model, available via API
+- `FLUX1.1 [pro]` available via API only
+- `FLUX.1 [pro]` available via API only
 - `FLUX.1 [dev]` guidance-distilled variant
 - `FLUX.1 [schnell]` guidance and step-distilled variant
 
@@ -91,6 +98,7 @@ We are offering three models:
 | `FLUX.1 [schnell]` | https://huggingface.co/black-forest-labs/FLUX.1-schnell | [apache-2.0](model_licenses/LICENSE-FLUX1-schnell)                    | a9e1e277b9b16add186f38e3f5a34044 |
 | `FLUX.1 [dev]`     | https://huggingface.co/black-forest-labs/FLUX.1-dev     | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) | a6bd8c16dfc23db6aee2f63a2eba78c0 |
 | `FLUX.1 [pro]`     | Only available in our API.                              |
+| `FLUX1.1 [pro]`    | Only available in our API.                              |
 
 The weights of the autoencoder are also released under [apache-2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) and can be found in either of the two HuggingFace repos above. They are the same for both models.
 
@@ -178,7 +186,7 @@ To learn more check out the [diffusers](https://huggingface.co/docs/diffusers/ma
 
 ## API usage
 
-Our API offers access to the pro model. It is documented here:
+Our API offers access to our models. It is documented here:
 [docs.bfl.ml](https://docs.bfl.ml/).
 
 In this repository we also offer an easy python interface. To use this, you
@@ -195,8 +203,8 @@ Usage from python:
 from flux.api import ImageRequest
 
 # this will create an api request directly but not block until the generation is finished
-request = ImageRequest("A beautiful beach")
-# or: request = ImageRequest("A beautiful beach", api_key="your_key_here")
+request = ImageRequest("A beautiful beach", name="flux.1.1-pro")
+# or: request = ImageRequest("A beautiful beach", name="flux.1.1-pro", api_key="your_key_here")
 
 # any of the following will block until the generation is finished
 request.url

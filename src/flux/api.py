@@ -6,7 +6,12 @@ from pathlib import Path
 import requests
 from PIL import Image
 
-API_ENDPOINT = "https://api.bfl.ml"
+API_URL = "https://api.bfl.ml"
+API_ENDPOINTS = {
+    "flux.1-pro": "flux-pro",
+    "flux.1-dev": "flux-dev",
+    "flux.1.1-pro": "flux-pro-1.1",
+}
 
 
 class ApiException(Exception):
@@ -31,13 +36,18 @@ class ApiException(Exception):
 class ImageRequest:
     def __init__(
         self,
+        # api inputs
         prompt: str,
-        width: int = 1024,
-        height: int = 1024,
-        name: str = "flux.1-pro",
-        num_steps: int = 50,
-        prompt_upsampling: bool = False,
+        name: str = "flux.1.1-pro",
+        width: int | None = None,
+        height: int | None = None,
+        num_steps: int | None = None,
+        prompt_upsampling: bool | None = None,
         seed: int | None = None,
+        guidance: float | None = None,
+        interval: float | None = None,
+        safety_tolerance: int | None = None,
+        # behavior of this class
         validate: bool = True,
         launch: bool = True,
         api_key: str | None = None,
@@ -45,46 +55,78 @@ class ImageRequest:
         """
         Manages an image generation request to the API.
 
+        All parameters not specified will use the API defaults.
+
         Args:
-            prompt: Prompt to sample
-            width: Width of the image in pixel
-            height: Height of the image in pixel
-            name: Name of the model
-            num_steps: Number of network evaluations
-            prompt_upsampling: Use prompt upsampling
-            seed: Fix the generation seed
+            prompt: Text prompt for image generation.
+            width: Width of the generated image in pixels. Must be a multiple of 32.
+            height: Height of the generated image in pixels. Must be a multiple of 32.
+            name: Which model version to use
+            num_steps: Number of steps for the image generation process.
+            prompt_upsampling: Whether to perform upsampling on the prompt.
+            seed: Optional seed for reproducibility.
+            guidance: Guidance scale for image generation.
+            safety_tolerance: Tolerance level for input and output moderation.
+                 Between 0 and 6, 0 being most strict, 6 being least strict.
             validate: Run input validation
             launch: Directly launches request
             api_key: Your API key if not provided by the environment
 
         Raises:
-            ValueError: For invalid input
+            ValueError: For invalid input, when `validate`
             ApiException: For errors raised from the API
         """
         if validate:
-            if name not in ["flux.1-pro"]:
+            if name not in API_ENDPOINTS.keys():
                 raise ValueError(f"Invalid model {name}")
-            elif width % 32 != 0:
+            elif width is not None and width % 32 != 0:
                 raise ValueError(f"width must be divisible by 32, got {width}")
-            elif not (256 <= width <= 1440):
+            elif width is not None and not (256 <= width <= 1440):
                 raise ValueError(f"width must be between 256 and 1440, got {width}")
-            elif height % 32 != 0:
+            elif height is not None and height % 32 != 0:
                 raise ValueError(f"height must be divisible by 32, got {height}")
-            elif not (256 <= height <= 1440):
+            elif height is not None and not (256 <= height <= 1440):
                 raise ValueError(f"height must be between 256 and 1440, got {height}")
-            elif not (1 <= num_steps <= 50):
+            elif num_steps is not None and not (1 <= num_steps <= 50):
                 raise ValueError(f"steps must be between 1 and 50, got {num_steps}")
+            elif guidance is not None and not (1.5 <= guidance <= 5.0):
+                raise ValueError(f"guidance must be between 1.5 and 4, got {guidance}")
+            elif interval is not None and not (1.0 <= interval <= 4.0):
+                raise ValueError(f"interval must be between 1 and 4, got {interval}")
+            elif safety_tolerance is not None and not (0 <= safety_tolerance <= 6.0):
+                raise ValueError(
+                    f"safety_tolerance must be between 0 and 6, got {interval}"
+                )
 
+            if name == "flux.1-dev":
+                if interval is not None:
+                    raise ValueError("Interval is not supported for flux.1-dev")
+            if name == "flux.1.1-pro":
+                if (
+                    interval is not None
+                    or num_steps is not None
+                    or guidance is not None
+                ):
+                    raise ValueError(
+                        "Interval, num_steps and guidance are not supported for "
+                        "flux.1.1-pro"
+                    )
+
+        self.name = name
         self.request_json = {
             "prompt": prompt,
             "width": width,
             "height": height,
-            "variant": name,
             "steps": num_steps,
             "prompt_upsampling": prompt_upsampling,
+            "seed": seed,
+            "guidance": guidance,
+            "interval": interval,
+            "safety_tolerance": safety_tolerance,
         }
-        if seed is not None:
-            self.request_json["seed"] = seed
+        self.request_json = {
+            key: value for key, value in self.request_json.items() if value is not None
+        }
 
         self.request_id: str | None = None
         self.result: dict | None = None
@@ -105,7 +147,7 @@ class ImageRequest:
         if self.request_id is not None:
             return
         response = requests.post(
-            f"{API_ENDPOINT}/v1/image",
+            f"{API_URL}/v1/{API_ENDPOINTS[self.name]}",
             headers={
                 "accept": "application/json",
                 "x-key": self.api_key,
@@ -115,7 +157,9 @@ class ImageRequest:
         )
         result = response.json()
         if response.status_code != 200:
-            raise ApiException(status_code=response.status_code, detail=result.get("detail"))
+            raise ApiException(
+                status_code=response.status_code, detail=result.get("detail")
+            )
         self.request_id = response.json()["id"]
 
     def retrieve(self) -> dict:
@@ -126,7 +170,7 @@ class ImageRequest:
             self.request()
         while self.result is None:
             response = requests.get(
-                f"{API_ENDPOINT}/v1/get_result",
+                f"{API_URL}/v1/get_result",
                 headers={
                     "accept": "application/json",
                     "x-key": self.api_key,
@@ -137,13 +181,17 @@ class ImageRequest:
             )
             result = response.json()
             if "status" not in result:
-                raise ApiException(status_code=response.status_code, detail=result.get("detail"))
+                raise ApiException(
+                    status_code=response.status_code, detail=result.get("detail")
+                )
             elif result["status"] == "Ready":
                 self.result = result["result"]
             elif result["status"] == "Pending":
                 time.sleep(0.5)
             else:
-                raise ApiException(status_code=200, detail=f"API returned status '{result['status']}'")
+                raise ApiException(
+                    status_code=200, detail=f"API returned status '{result['status']}'"
+                )
         return self.result
 
     @property
