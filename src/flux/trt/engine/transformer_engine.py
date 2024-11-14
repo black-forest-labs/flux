@@ -90,10 +90,6 @@ class TransformerEngine(TransformerMixin, BaseEngine):
 
             latent = self.infer(feed_dict=feed_dict)["latent"].clone()
 
-        torch.save(
-            {"inputs": feed_dict, "output": latent},
-            "flux.pt",
-        )
         return latent
 
     def get_shape_dict(
