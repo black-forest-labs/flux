@@ -13,6 +13,10 @@ from transformers import pipeline
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
 from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
 
+from flux.trt.trt_manager import TRTManager
+from cuda import cudart
+
+
 NSFW_THRESHOLD = 0.85
 
 
@@ -27,7 +31,9 @@ class SamplingOptions:
 
 
 def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
-    user_question = "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    user_question = (
+        "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    )
     usage = (
         "Usage: Either write your prompt directly, leave this field empty "
         "to repeat the prompt or write a command starting with a slash:\n"
@@ -110,6 +116,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
+    trt: bool = False,
+    **kwargs: dict | None,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -128,8 +136,12 @@ def main(
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
+        trt: use TensorRT backend for optimized inference
+        kwargs: additional arguments for TensorRT support
     """
-    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
+    nsfw_classifier = pipeline(
+        "image-classification", model="Falconsai/nsfw_image_detection", device=device
+    )
 
     if name not in configs:
         available = ", ".join(configs.keys())
@@ -148,7 +160,11 @@ def main(
         os.makedirs(output_dir)
         idx = 0
     else:
-        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
+        fns = [
+            fn
+            for fn in iglob(output_name.format(idx="*"))
+            if re.search(r"img_[0-9]+\.jpg$", fn)
+        ]
         if len(fns) > 0:
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
@@ -159,6 +175,58 @@ def main(
     clip = load_clip(torch_device)
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
+
+    if trt:
+        # offload to CPU to save memory
+        ae = ae.cpu()
+        model = model.cpu()
+        clip = clip.cpu()
+        t5 = t5.cpu()
+
+        torch.cuda.empty_cache()
+
+        trt_ctx_manager = TRTManager(
+            bf16=True,
+            device=torch_device,
+        )
+
+        engines = trt_ctx_manager.load_engines(
+            models={
+                "clip": clip,
+                "transformer": model,
+                "t5": t5,
+                "vae": ae,
+            },
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            opt_image_height=height,
+            opt_image_width=width,
+        )
+
+        torch.cuda.synchronize()
+
+        trt_ctx_manager.init_runtime()
+        stream = cudart.cudaStreamCreate()[1]
+
+        for engine in engines.values():
+            engine.load(stream)
+
+        calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+        _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
+
+        for engine_name, engine in engines.items():
+            engine.activate(shared_device_memory)
+            shape_dict = engine.get_shape_dict(
+                batch_size=1,
+                image_height=height,
+                image_width=width,
+            )
+            engine.allocate_buffers(shape_dict, device=torch_device)
+
+        ae = engines["vae"]
+        model = engines["transformer"]
+        clip = engines["clip"]
+        t5 = engines["t5"]
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
@@ -194,7 +262,9 @@ def main(
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
         inp = prepare(t5, clip, x, prompt=opts.prompt)
-        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
+        timesteps = get_schedule(
+            opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell")
+        )
 
         # offload TEs to CPU, load model to gpu
         if offload:
@@ -228,7 +298,9 @@ def main(
         x = rearrange(x[0], "c h w -> h w c")
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][0]
+        nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][
+            0
+        ]
 
         if nsfw_score < NSFW_THRESHOLD:
             exif_data = Image.Exif()
