@@ -46,7 +46,7 @@ class VAEExporter(VAEMixin, BaseExporter):
         )
 
         self.min_image_shape = 256  # min image resolution: 256x256
-        self.max_image_shape = 1360  # max image resolution: 1344x1344
+        self.max_image_shape = 1360  # max image resolution: 1360x1360
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
 
