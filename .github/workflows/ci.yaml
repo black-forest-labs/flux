@@ -16,3 +16,5 @@ jobs:
         run: ruff check --output-format=github .
       - name: Check imports
         run: ruff check --select I --output-format=github .
+      - name: Check formatting
+        run: ruff format --check .
