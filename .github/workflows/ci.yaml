@@ -14,3 +14,5 @@ jobs:
           pip install ruff==0.6.8
       - name: Run Ruff
         run: ruff check --output-format=github .
+      - name: Check imports
+        run: ruff check --select I --output-format=github .
