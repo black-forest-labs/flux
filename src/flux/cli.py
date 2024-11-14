@@ -116,7 +116,7 @@ def main(
         "a photo of a forest with mist swirling around the tree trunks. The word "
         '"FLUX" is painted over it in big, red brush strokes with visible texture'
     ),
-    device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
     num_steps: int | None = None,
     loop: bool = False,
     guidance: float = 3.5,
@@ -200,7 +200,7 @@ def main(
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
-                # "transformer": model,
+                "transformer": model,
                 "t5": t5,
                 "vae": ae,
             },
@@ -209,6 +209,9 @@ def main(
             opt_image_height=height,
             opt_image_width=width,
         )
+
+        torch.cuda.synchronize()
+
         trt_ctx_manager.init_runtime()
         stream = cudart.cudaStreamCreate()[1]
 
@@ -228,7 +231,7 @@ def main(
             engine.allocate_buffers(shape_dict, device=torch_device)
 
         ae = engines["vae"]
-        # model = engines["transformer"]
+        model = engines["transformer"]
         clip = engines["clip"]
         t5 = engines["t5"]
 
