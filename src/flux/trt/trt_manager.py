@@ -21,7 +21,7 @@ import torch
 import tensorrt as trt
 from typing import Any, Union
 
-from flux.trt.onnx_export import BaseExporter, CLIPExporter, TransformerExporter, T5Exporter, VAEExporter
+from flux.trt.exporter import BaseExporter, CLIPExporter, TransformerExporter, T5Exporter, VAEExporter
 from flux.trt.mixin import BaseMixin
 from flux.trt.engine import BaseEngine, CLIPEngine, TransformerEngine, T5Engine, VAEEngine
 
@@ -174,18 +174,18 @@ class TRTManager:
 
         return configs
 
-    def _get_onnx_exporters(
+    def _get_exporters(
         self,
         models: dict[str, torch.nn.Module],
     ) -> dict[str, Union[BaseMixin, BaseExporter]]:
-        onnx_exporters = {}
+        exporters = {}
         for model_name, model in models.items():
-            onnx_exporter_class = self.model_to_exporter_dict[model_name]
+            exporter_class = self.model_to_exporter_dict[model_name]
 
             if model_name in {"vae", "t5"}:
                 # traced in tf32 for numerical stability
                 # pass expected dtype for cast the final output/input
-                onnx_exporter = onnx_exporter_class(
+                exporter = exporter_class(
                     model=model,
                     fp16=False,
                     bf16=self.bf16,
@@ -193,10 +193,10 @@ class TRTManager:
                     max_batch=self.max_batch,
                     verbose=self.verbose,
                 )
-                onnx_exporters[model_name] = onnx_exporter
+                exporters[model_name] = exporter
 
             else:
-                onnx_exporter = onnx_exporter_class(
+                onnx_exporter = exporter_class(
                     model=model,
                     fp16=self.fp16,
                     bf16=self.bf16,
@@ -204,12 +204,12 @@ class TRTManager:
                     max_batch=self.max_batch,
                     verbose=self.verbose,
                 )
-                onnx_exporters[model_name] = onnx_exporter
+                exporters[model_name] = onnx_exporter
 
-        if "transformer" in onnx_exporters and "t5" in onnx_exporters:
-            onnx_exporters["transformer"].text_maxlen = onnx_exporters["t5"].text_maxlen
+        if "transformer" in exporters and "t5" in exporters:
+            exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
 
-        return onnx_exporters
+        return exporters
 
     def _export_onnx(
         self,
