@@ -29,7 +29,7 @@ class T5Exporter(T5Mixin, BaseExporter):
         tf32=True,
         bf16=False,
         max_batch=8,
-        build_strongly_typed=True,
+        build_strongly_typed=False,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
