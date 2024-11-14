@@ -180,7 +180,7 @@ class BaseEngine(ABC):
                 self.context.set_input_shape(tensor_name, tensor_shape)
             tensor_dtype = self.trt_to_torch_dtype_dict[self.engine.get_tensor_dtype(tensor_name)]
             tensor = torch.empty(
-                tensor_shape,
+                size=tensor_shape,
                 dtype=tensor_dtype,
             ).to(device=device)
             self.tensors[tensor_name] = tensor
