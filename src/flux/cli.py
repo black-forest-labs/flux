@@ -206,8 +206,6 @@ def main(
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            onnx_opset=19,
-            opt_batch_size=1,
             opt_image_height=height,
             opt_image_width=width,
         )
