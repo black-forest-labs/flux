@@ -51,7 +51,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         )
 
         self.min_image_shape = 256  # min image resolution: 256x256
-        self.max_image_shape = 1360  # max image resolution: 1344x1344
+        self.max_image_shape = 1360  # max image resolution: 1360x1360
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
         self.build_strongly_typed = build_strongly_typed
@@ -167,10 +167,6 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             dtype = torch.float16
         elif self.bf16:
             dtype = torch.bfloat16
-        elif self.tf32:
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            dtype = torch.float32
         else:
             dtype = torch.float32
 
@@ -190,5 +186,5 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         )
 
         if self.guidance_embed:
-            inputs = inputs + (torch.full((batch_size,), 3.5, dtype=torch.float32, device=self.device),)
+            inputs = inputs + (torch.full((batch_size,), 3.5, dtype=dtype, device=self.device),)
         return inputs
