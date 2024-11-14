@@ -32,12 +32,15 @@ gradio = [
   "gradio",
 ]
 trt = [
-  "transformers==4.42.2",
-  "onnx == 1.15.0",
-  "onnxruntime == 1.17.3",
-  "tensorrt >= 10.5.0",
-  "onnx-graphsurgeon",
-  "onnxconverter-common",
+  "tensorrt-cu12 >= 10.5.0",
+  "colored",
+  "cuda-python",
+  "transformers == 4.42.2",
+  "onnx == 1.17.0",
+  "onnxruntime == 1.19.2",
+  "onnxruntime-gpu == 1.18.1",
+  "opencv-python == 4.8.0.74",
+  "nvtx"
 ]
 all = [
   "flux[streamlit]",
