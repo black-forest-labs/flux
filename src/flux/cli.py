@@ -11,15 +11,7 @@ from PIL import ExifTags, Image
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import (
-    configs,
-    embed_watermark,
-    load_ae,
-    load_clip,
-    load_flow_model,
-    load_t5,
-)
-from transformers import pipeline
+from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
 
 from flux.trt.trt_manager import TRTManager
 from cuda import cudart
