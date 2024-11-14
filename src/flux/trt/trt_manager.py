@@ -182,13 +182,25 @@ class TRTManager:
         for model_name, model in models.items():
             exporter_class = self.model_to_exporter_dict[model_name]
 
-            if model_name in {"vae", "t5"}:
-                # traced in tf32 for numerical stability
-                # pass expected dtype for cast the final output/input
+            if model_name == "t5":
+                # traced in tf32 for numerical stability when on fp16
                 exporter = exporter_class(
                     model=model,
                     fp16=False,
                     bf16=self.bf16,
+                    tf32=self.tf32,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+                exporters[model_name] = exporter
+
+            elif model_name == "vae":
+                # Accuracy issues with FP16 and BF16
+                # fallback to FP32
+                exporter = exporter_class(
+                    model=model,
+                    fp16=False,
+                    bf16=False,
                     tf32=self.tf32,
                     max_batch=self.max_batch,
                     verbose=self.verbose,
@@ -329,6 +341,7 @@ class TRTManager:
 
         # Build TRT engines
         for model_name, model_exporter in exporters.items():
+            model_config = model_configs[model_name]
             self._build_engine(
                 model_exporter=model_exporter,
                 model_config=model_config,
