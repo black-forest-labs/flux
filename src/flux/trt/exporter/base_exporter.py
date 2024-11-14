@@ -70,7 +70,7 @@ class TransformersModelWrapper(torch.nn.Module):
 class FluxModelWrapper(torch.nn.Module):
     def __init__(self, model: Flux):
         super().__init__()
-        self.model = model
+        self.base_model = model
 
     def forward(
         self,
@@ -86,7 +86,7 @@ class FluxModelWrapper(torch.nn.Module):
         img_ids = torch.unsqueeze(img_ids, 0)
         txt_ids = torch.unsqueeze(txt_ids, 0)
 
-        return self.model(
+        return self.base_model(
             img=hidden_states,
             img_ids=img_ids,
             txt=encoder_hidden_states,
@@ -265,7 +265,7 @@ class BaseExporter(ABC):
         fp16=False,
         tf32=False,
         bf16=False,
-        max_batch=8,
+        max_batch=4,
         verbose=True,
         do_constant_folding=True,
     ):
@@ -289,10 +289,6 @@ class BaseExporter(ABC):
     def prepare_model(self):
         if self.fp16:
             self.model = self.model.to(dtype=torch.float16)
-        elif self.tf32:
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            self.model = self.model.to(dtype=torch.float32)
         elif self.bf16:
             self.model = self.model.to(dtype=torch.bfloat16)
         else:
@@ -373,7 +369,8 @@ class BaseExporter(ABC):
                         dynamic_axes=self.get_dynamic_axes(),
                     )
 
-                with torch.inference_mode(), torch.autocast("cuda"):
+                # WAR: Enable autocast for BF16 Stable Cascade pipeline
+                with torch.inference_mode(), torch.autocast("cuda", enabled=False):
                     export_onnx(self.get_model())
             else:
                 print(f"[I] Found cached ONNX model: {onnx_path}")
