@@ -316,9 +316,6 @@ class TRTManager:
         enable_all_tactics=False,
         timing_cache=None,
     ):
-        # assert all(
-        #     stage in models for stage in self.stages
-        # ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
 
         self._create_directories(
             engine_dir=engine_dir,
