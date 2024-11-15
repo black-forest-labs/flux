@@ -3,3 +3,5 @@ __pycache__
 
 .vscode
 .ruff_cache
+.venv
+_version.py
