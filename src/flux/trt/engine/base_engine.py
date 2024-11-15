@@ -38,9 +38,7 @@ def CUASSERT(cuda_ret):
     return None
 
 
-
 class BaseEngine(ABC):
-
     @property
     def trt_to_torch_dtype_dict(self):
         return {

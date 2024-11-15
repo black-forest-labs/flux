@@ -84,7 +84,7 @@ class TransformerEngine(TransformerMixin, BaseEngine):
                 if tensor_name != "latent"
             }
 
-            #remove batch dim to match demo-diffusion
+            # remove batch dim to match demo-diffusion
             feed_dict["img_ids"] = feed_dict["img_ids"][0]
             feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
 

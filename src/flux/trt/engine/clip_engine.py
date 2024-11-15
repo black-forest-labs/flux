@@ -58,7 +58,6 @@ class CLIPEngine(CLIPMixin, BaseEngine):
 
         return pooled_embeddings
 
-
     def get_shape_dict(
         self,
         batch_size: int,

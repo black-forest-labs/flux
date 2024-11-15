@@ -317,7 +317,6 @@ class TRTManager:
         enable_all_tactics=False,
         timing_cache=None,
     ):
-
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,

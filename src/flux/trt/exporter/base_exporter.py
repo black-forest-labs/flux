@@ -163,7 +163,9 @@ class Optimizer:
                     hidden_layers = max(int(name.split(".")[1].split("/")[0]), hidden_layers)
         for i in range(len(onnx_graph.graph.node)):
             for j in range(len(onnx_graph.graph.node[i].output)):
-                if onnx_graph.graph.node[i].output[j] == "/text_model/encoder/layers.{}/Add_1_output_0".format(
+                if onnx_graph.graph.node[i].output[
+                    j
+                ] == "/text_model/encoder/layers.{}/Add_1_output_0".format(
                     hidden_layers + hidden_layer_offset
                 ):
                     onnx_graph.graph.node[i].output[j] = "hidden_states"

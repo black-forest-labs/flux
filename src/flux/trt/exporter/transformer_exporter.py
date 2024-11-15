@@ -178,10 +178,13 @@ class TransformerExporter(TransformerMixin, BaseExporter):
                 dtype=dtype,
                 device=self.device,
             ),
-            torch.randn(batch_size, self.text_maxlen, self.context_in_dim, dtype=dtype, device=self.device) * 0.5,
+            torch.randn(batch_size, self.text_maxlen, self.context_in_dim, dtype=dtype, device=self.device)
+            * 0.5,
             torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
             torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
-            torch.zeros((latent_height // 2) * (latent_width // 2), 3, dtype=torch.float32, device=self.device),
+            torch.zeros(
+                (latent_height // 2) * (latent_width // 2), 3, dtype=torch.float32, device=self.device
+            ),
             torch.zeros(self.text_maxlen, 3, dtype=torch.float32, device=self.device),
         )
 
