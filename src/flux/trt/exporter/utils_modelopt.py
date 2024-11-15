@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import re
+
 import numpy as np
 import onnx
 import onnx_graphsurgeon as gs

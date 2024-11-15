@@ -15,10 +15,10 @@
 # limitations under the License.
 
 from flux.trt.exporter.base_exporter import BaseExporter
-from flux.trt.exporter.vae_exporter import VAEExporter
 from flux.trt.exporter.clip_exporter import CLIPExporter
-from flux.trt.exporter.transformer_exporter import TransformerExporter
 from flux.trt.exporter.t5_exporter import T5Exporter
+from flux.trt.exporter.transformer_exporter import TransformerExporter
+from flux.trt.exporter.vae_exporter import VAEExporter
 
 __all__ = [
     "BaseExporter",

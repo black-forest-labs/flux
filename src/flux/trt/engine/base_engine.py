@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 import gc
+from abc import ABC, abstractmethod
+from collections import OrderedDict
 
+import tensorrt as trt
+import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
-import tensorrt as trt
-import torch
-from abc import ABC, abstractmethod
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 

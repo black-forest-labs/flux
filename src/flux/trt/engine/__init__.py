@@ -16,8 +16,8 @@
 
 from flux.trt.engine.base_engine import BaseEngine
 from flux.trt.engine.clip_engine import CLIPEngine
-from flux.trt.engine.transformer_engine import TransformerEngine
 from flux.trt.engine.t5_engine import T5Engine
+from flux.trt.engine.transformer_engine import TransformerEngine
 from flux.trt.engine.vae_engine import VAEEngine
 
 __all__ = [

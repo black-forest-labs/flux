@@ -19,8 +19,8 @@ from math import ceil
 import torch
 
 from flux.model import Flux
-from flux.trt.mixin import TransformerMixin
 from flux.trt.exporter.base_exporter import BaseExporter, FluxModelWrapper
+from flux.trt.mixin import TransformerMixin
 
 
 class TransformerExporter(TransformerMixin, BaseExporter):
