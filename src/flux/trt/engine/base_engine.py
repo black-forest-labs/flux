@@ -124,7 +124,7 @@ class BaseEngine(ABC):
 
     def deallocate_buffers(self):
         for idx in range(self.engine.num_io_tensors):
-            tensor_name = self.engine.get_tensor_name(binding)
+            tensor_name = self.engine.get_tensor_name(idx)
             del self.tensors[tensor_name]
 
     def infer(
@@ -139,6 +139,6 @@ class BaseEngine(ABC):
 
         noerror = self.context.execute_async_v3(self.stream)
         if not noerror:
-            raise ValueError(f"ERROR: inference failed.")
+            raise ValueError("ERROR: inference failed.")
 
         return self.tensors
