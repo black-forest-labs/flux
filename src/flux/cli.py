@@ -5,17 +5,15 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
+from cuda import cudart
 from einops import rearrange
 from fire import Fire
 from PIL import ExifTags, Image
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
-
 from flux.trt.trt_manager import TRTManager
-from cuda import cudart
-
+from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
 
 NSFW_THRESHOLD = 0.85
 
