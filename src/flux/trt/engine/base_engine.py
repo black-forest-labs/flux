@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 import gc
+from abc import ABC, abstractmethod
+from collections import OrderedDict
 
+import tensorrt as trt
+import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
-import tensorrt as trt
-import torch
-from abc import ABC, abstractmethod
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -38,9 +38,7 @@ def CUASSERT(cuda_ret):
     return None
 
 
-
 class BaseEngine(ABC):
-
     @property
     def trt_to_torch_dtype_dict(self):
         return {
@@ -124,7 +122,7 @@ class BaseEngine(ABC):
 
     def deallocate_buffers(self):
         for idx in range(self.engine.num_io_tensors):
-            tensor_name = self.engine.get_tensor_name(binding)
+            tensor_name = self.engine.get_tensor_name(idx)
             del self.tensors[tensor_name]
 
     def infer(
@@ -139,6 +137,6 @@ class BaseEngine(ABC):
 
         noerror = self.context.execute_async_v3(self.stream)
         if not noerror:
-            raise ValueError(f"ERROR: inference failed.")
+            raise ValueError("ERROR: inference failed.")
 
         return self.tensors

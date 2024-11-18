@@ -15,10 +15,10 @@
 # limitations under the License.
 
 import torch
+from transformers import CLIPTokenizer
 
 from flux.trt.engine import BaseEngine
 from flux.trt.mixin import CLIPMixin
-from transformers import CLIPTokenizer
 
 
 class CLIPEngine(CLIPMixin, BaseEngine):
@@ -57,7 +57,6 @@ class CLIPEngine(CLIPMixin, BaseEngine):
             pooled_embeddings = self.infer(feed_dict)["pooled_embeddings"].clone()
 
         return pooled_embeddings
-
 
     def get_shape_dict(
         self,

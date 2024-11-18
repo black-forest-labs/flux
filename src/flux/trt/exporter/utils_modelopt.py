@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import re
+
 import numpy as np
 import onnx
 import onnx_graphsurgeon as gs
@@ -196,7 +197,9 @@ def cast_fp8_mha_io(graph):
             fp8_mha_partition = []
             if has_path_type(
                 node, graph, softmax_bmm1_chain_type, False, wild_card_types, fp8_mha_partition
-            ) and has_path_type(node, graph, softmax_bmm2_chain_type, True, wild_card_types, fp8_mha_partition):
+            ) and has_path_type(
+                node, graph, softmax_bmm2_chain_type, True, wild_card_types, fp8_mha_partition
+            ):
                 if (
                     len(fp8_mha_partition) == 10
                     and fp8_mha_partition[1].op == "MatMul"

@@ -20,16 +20,13 @@ import tempfile
 from abc import ABC, abstractmethod
 from typing import Any
 
-import torch
-from torch import nn, Tensor
-from transformers import PreTrainedModel
-
 import onnx
 import onnx_graphsurgeon as gs
+import tensorrt as trt
+import torch
 from onnx import shape_inference
 from onnxconverter_common.float16 import convert_float_to_float16
 from polygraphy.backend.onnx.loader import fold_constants
-
 from polygraphy.backend.trt import (
     CreateConfig,
     ModifyNetworkOutputs,
@@ -39,17 +36,19 @@ from polygraphy.backend.trt import (
     save_engine,
 )
 from polygraphy.logger import G_LOGGER
-import tensorrt as trt
+from torch import Tensor, nn
+from transformers import PreTrainedModel
+
+from flux.model import Flux
+from flux.modules.conditioner import HFEmbedder
 
 from .utils_modelopt import (
-    convert_zp_fp8,
+    cast_fp8_mha_io,
     cast_resize_io,
     convert_fp16_io,
-    cast_fp8_mha_io,
+    convert_zp_fp8,
 )
 
-from flux.modules.conditioner import HFEmbedder
-from flux.model import Flux
 
 class TransformersModelWrapper(torch.nn.Module):
     def __init__(self, model: HFEmbedder, output_name: str):
@@ -164,7 +163,9 @@ class Optimizer:
                     hidden_layers = max(int(name.split(".")[1].split("/")[0]), hidden_layers)
         for i in range(len(onnx_graph.graph.node)):
             for j in range(len(onnx_graph.graph.node[i].output)):
-                if onnx_graph.graph.node[i].output[j] == "/text_model/encoder/layers.{}/Add_1_output_0".format(
+                if onnx_graph.graph.node[i].output[
+                    j
+                ] == "/text_model/encoder/layers.{}/Add_1_output_0".format(
                     hidden_layers + hidden_layer_offset
                 ):
                     onnx_graph.graph.node[i].output[j] = "hidden_states"

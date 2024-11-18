@@ -43,14 +43,12 @@ class VAEEngine(VAEMixin, BaseEngine):
     ) -> torch.Tensor:
         return self.decode(x)
 
-
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         z = z.to(dtype=self.tensors["latent"].dtype)
         z = (z / self.scale_factor) + self.shift_factor
         feed_dict = {"latent": z}
         images = self.infer(feed_dict=feed_dict)["images"].clone()
         return images
-
 
     def get_shape_dict(
         self,
