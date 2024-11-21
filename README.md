@@ -3,39 +3,7 @@ by Black Forest Labs: https://blackforestlabs.ai. Documentation for our API can 
 
 ![grid](assets/grid.jpg)
 
-This repo contains minimal inference code to run text-to-image and image-to-image with our Flux latent rectified flow transformers.
-
-### Inference partners
-
-We are happy to partner with [Replicate](https://replicate.com/), [FAL](https://fal.ai/), [Mystic](https://www.mystic.ai), and [Together](https://www.together.ai/). You can sample our models using their services.
-Below we list relevant links.
-
-Replicate:
-
-- https://replicate.com/collections/flux
-- https://replicate.com/collections/flux-fine-tunes
-- https://replicate.com/black-forest-labs/flux-pro
-- https://replicate.com/black-forest-labs/flux-dev
-- https://replicate.com/black-forest-labs/flux-schnell
-
-FAL:
-
-- https://fal.ai/models/fal-ai/flux-pro
-- https://fal.ai/models/fal-ai/flux/dev
-- https://fal.ai/models/fal-ai/flux/schnell
-
-Mystic:
-
-- https://www.mystic.ai/black-forest-labs
-- https://www.mystic.ai/black-forest-labs/flux1-pro
-- https://www.mystic.ai/black-forest-labs/flux1-dev
-- https://www.mystic.ai/black-forest-labs/flux1-schnell
-
-Together:
-- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell-Free (ends December 31, 2024)
-- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-schnell
-- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1.1-pro
-- https://api.together.xyz/playground/image/black-forest-labs/FLUX.1-pro
+This repo contains minimal inference code to run image generation & editing with our Flux models.
 
 ## Local installation
 
@@ -49,103 +17,28 @@ pip install -e ".[all]"
 
 ### Models
 
-We are offering three models:
+We are offering an extensive suite of models. For more information about the invidual models, please refer to the link under **Usage**.
 
-- `FLUX1.1 [pro]` available via API only
-- `FLUX.1 [pro]` available via API only
-- `FLUX.1 [dev]` guidance-distilled variant
-- `FLUX.1 [schnell]` guidance and step-distilled variant
+| Name                        | Usage                                                      | HuggingFace repo                                               | License                                                               |
+| --------------------------- | ---------------------------------------------------------- |  ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `FLUX.1 [schnell]`          | [Text to Image](docs/text-to-image.md)                     | https://huggingface.co/black-forest-labs/FLUX.1-schnell        | [apache-2.0](model_licenses/LICENSE-FLUX1-schnell)                    |
+| `FLUX.1 [dev]`              | [Text to Image](docs/text-to-image.md)                     | https://huggingface.co/black-forest-labs/FLUX.1-dev            | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Fill [dev]`         | [In/Out-painting](docs/fill.md)                            | https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev       | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Canny [dev]`        | [Structural Conditioning](docs/structural-conditioning.md) | https://huggingface.co/black-forest-labs/FLUX.1-Canny-dev      | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Depth [dev]`        | [Structural Conditioning](docs/structural-conditioning.md) | https://huggingface.co/black-forest-labs/FLUX.1-Depth-dev      | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Canny [dev] LoRA`   | [Structural Conditioning](docs/structural-conditioning.md) | https://huggingface.co/black-forest-labs/FLUX.1-Canny-dev-lora | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Depth [dev] LoRA`   | [Structural Conditioning](docs/structural-conditioning.md) | https://huggingface.co/black-forest-labs/FLUX.1-Depth-dev-lora | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Redux [dev]`        | [Image variation](docs/image-variation.md)                 | https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev      | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 [pro]`              | [Text to Image](docs/text-to-image.md)                     | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX1.1 [pro]`             | [Text to Image](docs/text-to-image.md)                     | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX1.1 [pro] Ultra/raw`   | [Text to Image](docs/text-to-image.md)                     | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX.1 Fill [pro]`         | [In/Out-painting](docs/fill.md)                            | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX.1 Canny [pro]`        | [Structural Conditioning](docs/controlnet.md)              | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX.1 Depth [pro]`        | [Structural Conditioning](docs/controlnet.md)              | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX1.1 Redux [pro]`       | [Image variation](docs/image-variation.md)                 | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX1.1 Redux [pro] Ultra` | [Image variation](docs/image-variation.md)                 | [Available in our API.](https://docs.bfl.ml/)             |
 
-| Name               | HuggingFace repo                                        | License                                                               | md5sum                           |
-| ------------------ | ------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------- |
-| `FLUX.1 [schnell]` | https://huggingface.co/black-forest-labs/FLUX.1-schnell | [apache-2.0](model_licenses/LICENSE-FLUX1-schnell)                    | a9e1e277b9b16add186f38e3f5a34044 |
-| `FLUX.1 [dev]`     | https://huggingface.co/black-forest-labs/FLUX.1-dev     | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) | a6bd8c16dfc23db6aee2f63a2eba78c0 |
-| `FLUX.1 [pro]`     | Only available in our API.                              |
-| `FLUX1.1 [pro]`    | Only available in our API.                              |
-
-The weights of the autoencoder are also released under [apache-2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) and can be found in either of the two HuggingFace repos above. They are the same for both models.
-
-## Usage
-
-The weights will be downloaded automatically from HuggingFace once you start one of the demos. To download `FLUX.1 [dev]`, you will need to be logged in, see [here](https://huggingface.co/docs/huggingface_hub/guides/cli#huggingface-cli-login).
-If you have downloaded the model weights manually, you can specify the downloaded paths via environment-variables:
-
-```bash
-export FLUX_SCHNELL=<path_to_flux_schnell_sft_file>
-export FLUX_DEV=<path_to_flux_dev_sft_file>
-export AE=<path_to_ae_sft_file>
-```
-
-For interactive sampling run
-
-```bash
-python -m flux --name <name> --loop
-```
-
-Or to generate a single sample run
-
-```bash
-python -m flux --name <name> \
-  --height <height> --width <width> \
-  --prompt "<prompt>"
-```
-
-We also provide a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
-
-```bash
-streamlit run demo_st.py
-```
-
-We also offer a Gradio-based demo for an interactive experience. To run the Gradio demo:
-
-```bash
-python demo_gr.py --name flux-schnell --device cuda
-```
-
-Options:
-
-- `--name`: Choose the model to use (options: "flux-schnell", "flux-dev")
-- `--device`: Specify the device to use (default: "cuda" if available, otherwise "cpu")
-- `--offload`: Offload model to CPU when not in use
-- `--share`: Create a public link to your demo
-
-To run the demo with the dev model and create a public link:
-
-```bash
-python demo_gr.py --name flux-dev --share
-```
-
-## Diffusers integration
-
-`FLUX.1 [schnell]` and `FLUX.1 [dev]` are integrated with the [🧨 diffusers](https://github.com/huggingface/diffusers) library. To use it with diffusers, install it:
-
-```shell
-pip install git+https://github.com/huggingface/diffusers.git
-```
-
-Then you can use `FluxPipeline` to run the model
-
-```python
-import torch
-from diffusers import FluxPipeline
-
-model_id = "black-forest-labs/FLUX.1-schnell" #you can also use `black-forest-labs/FLUX.1-dev`
-
-pipe = FluxPipeline.from_pretrained("black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16)
-pipe.enable_model_cpu_offload() #save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
-
-prompt = "A cat holding a sign that says hello world"
-seed = 42
-image = pipe(
-    prompt,
-    output_type="pil",
-    num_inference_steps=4, #use a larger number if you are using [dev]
-    generator=torch.Generator("cpu").manual_seed(seed)
-).images[0]
-image.save("flux-schnell.png")
-```
-
-To learn more check out the [diffusers](https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux) documentation
+The weights of the autoencoder are also released under [apache-2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) and can be found in the HuggingFace repos above.
 
 ## API usage
 
