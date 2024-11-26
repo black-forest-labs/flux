@@ -33,8 +33,8 @@ We are offering an extensive suite of models. For more information about the inv
 | `FLUX1.1 [pro]`             | [Text to Image](docs/text-to-image.md)                     | [Available in our API.](https://docs.bfl.ml/)             |
 | `FLUX1.1 [pro] Ultra/raw`   | [Text to Image](docs/text-to-image.md)                     | [Available in our API.](https://docs.bfl.ml/)             |
 | `FLUX.1 Fill [pro]`         | [In/Out-painting](docs/fill.md)                            | [Available in our API.](https://docs.bfl.ml/)             |
-| `FLUX.1 Canny [pro]`        | [Structural Conditioning](docs/controlnet.md)              | [Available in our API.](https://docs.bfl.ml/)             |
-| `FLUX.1 Depth [pro]`        | [Structural Conditioning](docs/controlnet.md)              | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX.1 Canny [pro]`        | [Structural Conditioning](docs/structural-conditioning.md)              | [Available in our API.](https://docs.bfl.ml/)             |
+| `FLUX.1 Depth [pro]`        | [Structural Conditioning](docs/structural-conditioning.md)              | [Available in our API.](https://docs.bfl.ml/)             |
 | `FLUX1.1 Redux [pro]`       | [Image variation](docs/image-variation.md)                 | [Available in our API.](https://docs.bfl.ml/)             |
 | `FLUX1.1 Redux [pro] Ultra` | [Image variation](docs/image-variation.md)                 | [Available in our API.](https://docs.bfl.ml/)             |
 
