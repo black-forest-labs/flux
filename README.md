@@ -10,8 +10,15 @@ This repo contains minimal inference code to run image generation & editing with
 ```bash
 cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
+
+# Using pyvenv
 python3.10 -m venv .venv
 source .venv/bin/activate
+
+# Using conda (Optional)
+conda create -n flux python=3.10 -y
+conda activate flux
+
 pip install -e ".[all]"
 ```
 
