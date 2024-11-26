@@ -9,7 +9,7 @@ requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
 dynamic = ["version"]
 dependencies = [
-  "torch >= 2.0.0",
+  "torch == 2.5.1",
   "torchvision",
   "einops",
   "fire >= 0.6.0",
@@ -27,6 +27,7 @@ dependencies = [
 [project.optional-dependencies]
 streamlit = [
   "streamlit",
+  "streamlit-drawable-canvas",
   "streamlit-keyup",
 ]
 gradio = [
