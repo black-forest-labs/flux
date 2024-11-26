@@ -11,11 +11,13 @@ from flux.modules.layers import (
     SingleStreamBlock,
     timestep_embedding,
 )
+from flux.modules.lora import LinearLora, replace_linear_with_lora
 
 
 @dataclass
 class FluxParams:
     in_channels: int
+    out_channels: int
     vec_in_dim: int
     context_in_dim: int
     hidden_size: int
@@ -39,7 +41,7 @@ class Flux(nn.Module):
 
         self.params = params
         self.in_channels = params.in_channels
-        self.out_channels = self.in_channels
+        self.out_channels = params.out_channels
         if params.hidden_size % params.num_heads != 0:
             raise ValueError(
                 f"Hidden size {params.hidden_size} must be divisible by num_heads {params.num_heads}"
@@ -115,3 +117,27 @@ class Flux(nn.Module):
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
         return img
+
+
+class FluxLoraWrapper(Flux):
+    def __init__(
+        self,
+        lora_rank: int = 128,
+        lora_scale: float = 1.0,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.lora_rank = lora_rank
+
+        replace_linear_with_lora(
+            self,
+            max_rank=lora_rank,
+            scale=lora_scale,
+        )
+
+    def set_lora_scale(self, scale: float) -> None:
+        for module in self.modules():
+            if isinstance(module, LinearLora):
+                module.set_scale(scale=scale)
