@@ -39,9 +39,9 @@ class VAEEngine(VAEMixin, BaseEngine):
 
     def __call__(
         self,
-        x: torch.Tensor,
+        latent: torch.Tensor,
     ) -> torch.Tensor:
-        return self.decode(x)
+        return self.decode(latent)
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         z = z.to(dtype=self.tensors["latent"].dtype)

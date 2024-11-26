@@ -39,7 +39,7 @@ class VAEExporter(VAEMixin, BaseExporter):
             compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            model=model,
+            model=model.decoder,  # we need to trace only the decoder
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
@@ -54,10 +54,6 @@ class VAEExporter(VAEMixin, BaseExporter):
 
         # set proper dtype
         self.prepare_model()
-
-    def get_model(self) -> torch.nn.Module:
-        self.model.forward = self.model.decode
-        return self.model
 
     def get_input_names(self):
         return ["latent"]
