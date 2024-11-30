@@ -86,8 +86,7 @@ def main(
             False,
             disabled=is_schnell,
             help=(
-                "Partially noise an image and denoise again to get variations.\n\nOnly"
-                " works for flux-dev"
+                "Partially noise an image and denoise again to get variations.\n\nOnly" " works for flux-dev"
             ),
         )
         and not is_schnell
@@ -96,9 +95,7 @@ def main(
         init_image = get_image()
         if init_image is None:
             st.warning("Please add an image to do image to image")
-        image2image_strength = st.number_input(
-            "Noising strength", min_value=0.0, max_value=1.0, value=0.8
-        )
+        image2image_strength = st.number_input("Noising strength", min_value=0.0, max_value=1.0, value=0.8)
         if init_image is not None:
             h, w = init_image.shape[-2:]
             st.write(f"Got image of size {w}x{h} ({h*w/1e6:.2f}MP)")
@@ -110,29 +107,13 @@ def main(
 
     # allow for packing and conversion to latent space
     width = int(
-        16
-        * (
-            st.number_input(
-                "Width", min_value=128, value=1360, step=16, disabled=not resize_img
-            )
-            // 16
-        )
+        16 * (st.number_input("Width", min_value=128, value=1360, step=16, disabled=not resize_img) // 16)
     )
     height = int(
-        16
-        * (
-            st.number_input(
-                "Height", min_value=128, value=768, step=16, disabled=not resize_img
-            )
-            // 16
-        )
+        16 * (st.number_input("Height", min_value=128, value=768, step=16, disabled=not resize_img) // 16)
     )
-    num_steps = int(
-        st.number_input("Number of steps", min_value=1, value=(4 if is_schnell else 50))
-    )
-    guidance = float(
-        st.number_input("Guidance", min_value=1.0, value=3.5, disabled=is_schnell)
-    )
+    num_steps = int(st.number_input("Number of steps", min_value=1, value=(4 if is_schnell else 50)))
+    guidance = float(st.number_input("Guidance", min_value=1.0, value=3.5, disabled=is_schnell))
     seed_str = st.text_input("Seed", disabled=is_schnell)
     if seed_str.isdecimal():
         seed = int(seed_str)
@@ -146,20 +127,14 @@ def main(
         "a photo of a forest with mist swirling around the tree trunks. The word "
         '"FLUX" is painted over it in big, red brush strokes with visible texture'
     )
-    prompt = st_keyup(
-        "Enter a prompt", value=default_prompt, debounce=300, key="interactive_text"
-    )
+    prompt = st_keyup("Enter a prompt", value=default_prompt, debounce=300, key="interactive_text")
 
     output_name = os.path.join(output_dir, "img_{idx}.jpg")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         idx = 0
     else:
-        fns = [
-            fn
-            for fn in iglob(output_name.format(idx="*"))
-            if re.search(r"img_[0-9]+\.jpg$", fn)
-        ]
+        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
         if len(fns) > 0:
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
@@ -199,7 +174,7 @@ def main(
         else:
             nsfw_text_score = 1 - nsfw_text["score"]
         print(f"NSFW text score: {nsfw_text_score}")
-        
+
         if nsfw_text_score > NSFW_THRESHOLD:
             st.warning("Your prompt may contain NSFW content.")
             st.session_state["samples"] = None
@@ -213,9 +188,7 @@ def main(
 
             if init_image is not None:
                 if resize_img:
-                    init_image = torch.nn.functional.interpolate(
-                        init_image, (opts.height, opts.width)
-                    )
+                    init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
                 else:
                     h, w = init_image.shape[-2:]
                     init_image = init_image[..., : 16 * (h // 16), : 16 * (w // 16)]
@@ -287,9 +260,7 @@ def main(
             x = rearrange(x[0], "c h w -> h w c")
 
             img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-            nsfw_image_score = [
-                x["score"] for x in nsfw_image_classifier(img) if x["label"] == "nsfw"
-            ][0]
+            nsfw_image_score = [x["score"] for x in nsfw_image_classifier(img) if x["label"] == "nsfw"][0]
 
             if nsfw_image_score < NSFW_THRESHOLD:
                 buffer = BytesIO()

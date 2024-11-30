@@ -99,14 +99,10 @@ class FluxGenerator:
 
         if init_image is not None:
             if isinstance(init_image, np.ndarray):
-                init_image = (
-                    torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
-                )
+                init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
                 init_image = init_image.unsqueeze(0)
             init_image = init_image.to(self.device)
-            init_image = torch.nn.functional.interpolate(
-                init_image, (opts.height, opts.width)
-            )
+            init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
             if self.offload:
                 self.ae.encoder.to(self.device)
             init_image = self.ae.encode(init_image.to())
@@ -171,9 +167,7 @@ class FluxGenerator:
         x = rearrange(x[0], "c h w -> h w c")
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_image_score = [
-            x["score"] for x in self.nsfw_image_classifier(img) if x["label"] == "nsfw"
-        ][0]
+        nsfw_image_score = [x["score"] for x in self.nsfw_image_classifier(img) if x["label"] == "nsfw"][0]
         print(f"NSFW image score: {nsfw_image_score}")
 
         if nsfw_image_score < NSFW_THRESHOLD:
@@ -222,9 +216,7 @@ def create_demo(
                         " with visible texture"
                     ),
                 )
-                do_img2img = gr.Checkbox(
-                    label="Image to Image", value=False, interactive=not is_schnell
-                )
+                do_img2img = gr.Checkbox(label="Image to Image", value=False, interactive=not is_schnell)
                 init_image = gr.Image(label="Input Image", visible=False)
                 image2image_strength = gr.Slider(
                     0.0, 1.0, 0.8, step=0.1, label="Noising strength", visible=False
@@ -237,9 +229,7 @@ def create_demo(
                 with gr.Accordion("Advanced Options", open=False):
                     width = gr.Slider(128, 8192, 1360, step=16, label="Width")
                     height = gr.Slider(128, 8192, 768, step=16, label="Height")
-                    num_steps = gr.Slider(
-                        1, 50, 4 if is_schnell else 50, step=1, label="Number of steps"
-                    )
+                    num_steps = gr.Slider(1, 50, 4 if is_schnell else 50, step=1, label="Number of steps")
                     guidance = gr.Slider(
                         1.0,
                         10.0,
@@ -271,9 +261,7 @@ def create_demo(
                 image2image_strength: gr.update(visible=do_img2img),
             }
 
-        do_img2img.change(
-            update_img2img, do_img2img, [init_image, image2image_strength]
-        )
+        do_img2img.change(update_img2img, do_img2img, [init_image, image2image_strength])
 
         generate_btn.click(
             fn=generator.generate_image,

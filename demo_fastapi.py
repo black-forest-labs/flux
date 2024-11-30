@@ -112,14 +112,10 @@ class FluxGenerator:
 
         if init_image is not None:
             if isinstance(init_image, np.ndarray):
-                init_image = (
-                    torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
-                )
+                init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
                 init_image = init_image.unsqueeze(0)
             init_image = init_image.to(self.device)
-            init_image = torch.nn.functional.interpolate(
-                init_image, (opts.height, opts.width)
-            )
+            init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
             if self.offload:
                 self.ae.encoder.to(self.device)
             init_image = self.ae.encode(init_image.to())
@@ -237,13 +233,11 @@ class ImageGenerationAPI:
     def __init__(self, model_name, device="cuda", offload=False):
         self.generator = FluxGenerator(model_name, device, offload)
         self.router = APIRouter()
-        self.router.add_api_route(
-            "/generate", self.generate, methods=["POST"], response_model=Response
-        )
+        self.router.add_api_route("/generate", self.generate, methods=["POST"], response_model=Response)
 
     def generate(self, request: Request):
-        output_image, seed_output, download_btn, warning_text = (
-            self.generator.generate_image(**request.model_dump())
+        output_image, seed_output, download_btn, warning_text = self.generator.generate_image(
+            **request.model_dump()
         )
 
         if output_image is not None:
@@ -295,9 +289,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     app = FastAPI(title="Flux Image Generation")
-    app.mount(
-        "/generation_output", StaticFiles(directory="output/"), name="generation_output"
-    )
+    app.mount("/generation_output", StaticFiles(directory="output/"), name="generation_output")
     api = ImageGenerationAPI(args.name, args.device, args.offload)
     app.include_router(api.router)
     uvicorn.run(app, host="0.0.0.0", port=args.port)
