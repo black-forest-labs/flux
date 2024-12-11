@@ -38,3 +38,7 @@ python -m src.flux.cli_control --loop --name <name>
 ```
 
 where `name` is one of `flux-dev-canny`, `flux-dev-depth`, `flux-dev-canny-lora`, or `flux-dev-depth-lora`.
+
+## Diffusers usage
+
+Flux Control (including the LoRAs) is also compatible with the `diffusers` Python library. Check out the [documentation](https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux) to learn more.
