@@ -9,8 +9,8 @@ from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_device_initial, get_dtype
-from hpu_utils import load_model_to_hpu
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_device_initial
+from flux.hpu_utils import load_model_to_hpu, get_dtype
 
 NSFW_THRESHOLD = 0.85
 
@@ -201,10 +201,13 @@ def main(
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # offload TEs to CPU, load model to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             t5, clip = t5.cpu(), clip.cpu()
             torch.cuda.empty_cache()
             model = model.to(torch_device)
+
+        if str(device) == "hpu":
+            model = load_model_to_hpu(model)
 
         # denoise initial noise
         x = denoise(model, **inp, timesteps=timesteps, guidance=opts.guidance)

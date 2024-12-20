@@ -1,12 +1,13 @@
-import math
 from typing import Callable
 
 import numpy as np
 import torch
-from einops import rearrange, repeat
 from PIL import Image
+from einops import rearrange, repeat
 from torch import Tensor
 
+import math
+from flux.hpu_utils import get_dtype, load_model_to_hpu
 from .model import Flux
 from .modules.autoencoder import AutoEncoder
 from .modules.conditioner import HFEmbedder
@@ -94,7 +95,10 @@ def prepare_control(
         img_cond = encoder(img_cond)
         img_cond = ae.encode(img_cond)
 
-    img_cond = img_cond.to(torch.bfloat16)
+    # get dtype
+    dtype = get_dtype(str(img.device))
+
+    img_cond = img_cond.to(dtype)
     img_cond = rearrange(img_cond, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
     if img_cond.shape[0] == 1 and bs > 1:
         img_cond = repeat(img_cond, "1 ... -> bs ...", bs=bs)
@@ -128,13 +132,18 @@ def prepare_fill(
     mask = torch.from_numpy(mask).float() / 255.0
     mask = rearrange(mask, "h w -> 1 1 h w")
 
+    dtype = get_dtype(str(img.device))
     with torch.no_grad():
-        img_cond = img_cond.to(img.device)
-        mask = mask.to(img.device)
+        if str(img.device) == "hpu":
+            img_cond = load_model_to_hpu(img_cond)
+            mask = load_model_to_hpu(mask)
+        else:
+            img_cond = img_cond.to(img.device)
+            mask = mask.to(img.device)
         img_cond = img_cond * (1 - mask)
         img_cond = ae.encode(img_cond)
         mask = mask[:, 0, :, :]
-        mask = mask.to(torch.bfloat16)
+        mask = mask.to(dtype)
         mask = rearrange(
             mask,
             "b (h ph) (w pw) -> b (ph pw) h w",
@@ -145,7 +154,7 @@ def prepare_fill(
         if mask.shape[0] == 1 and bs > 1:
             mask = repeat(mask, "1 ... -> bs ...", bs=bs)
 
-    img_cond = img_cond.to(torch.bfloat16)
+    img_cond = img_cond.to(dtype)
     img_cond = rearrange(img_cond, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
     if img_cond.shape[0] == 1 and bs > 1:
         img_cond = repeat(img_cond, "1 ... -> bs ...", bs=bs)
@@ -153,7 +162,11 @@ def prepare_fill(
     img_cond = torch.cat((img_cond, mask), dim=-1)
 
     return_dict = prepare(t5, clip, img, prompt)
-    return_dict["img_cond"] = img_cond.to(img.device)
+
+    if str(img.device) == "hpu":
+        return_dict["img_cond"] = load_model_to_hpu(img_cond)
+    else:
+        return_dict["img_cond"] = img_cond.to(img.device)
     return return_dict
 
 
@@ -166,6 +179,7 @@ def prepare_redux(
     img_cond_path: str,
 ) -> dict[str, Tensor]:
     bs, _, h, w = img.shape
+    dtype = get_dtype(str(img.device))
     if bs == 1 and not isinstance(prompt, str):
         bs = len(prompt)
 
@@ -173,7 +187,7 @@ def prepare_redux(
     with torch.no_grad():
         img_cond = encoder(img_cond)
 
-    img_cond = img_cond.to(torch.bfloat16)
+    img_cond = img_cond.to(dtype)
     if img_cond.shape[0] == 1 and bs > 1:
         img_cond = repeat(img_cond, "1 ... -> bs ...", bs=bs)
 

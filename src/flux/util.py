@@ -12,7 +12,7 @@ from safetensors.torch import load_file as load_sft
 from flux.model import Flux, FluxLoraWrapper, FluxParams
 from flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
 from flux.modules.conditioner import HFEmbedder
-from hpu_utils import load_model_to_hpu
+from flux.hpu_utils import load_model_to_hpu
 
 
 def get_device_initial(preferred_device=None):
@@ -41,21 +41,6 @@ def get_device_initial(preferred_device=None):
 
     # Default to CPU
     return "cpu"
-
-
-def get_dtype(device: str) -> torch.dtype:
-    """
-    Determine the appropriate dtype to use based on the device.
-
-    Args:
-        device (str): Device string ('cuda', 'hpu', or 'cpu').
-
-    Returns:
-        torch.dtype: Data type (torch.float32 or torch.bfloat16).
-    """
-    if "hpu" in device:
-        return torch.float32
-    return torch.bfloat16
 
 
 def save_image(

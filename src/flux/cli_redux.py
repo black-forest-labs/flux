@@ -10,8 +10,8 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import ReduxImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_redux, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_dtype
-from hpu_utils import load_model_to_hpu
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.hpu_utils import load_model_to_hpu, get_dtype
 
 
 @dataclass
