@@ -10,7 +10,8 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import ReduxImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_redux, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_dtype
+from hpu_utils import load_model_to_hpu
 
 
 @dataclass
@@ -206,6 +207,7 @@ def main(
         opts = parse_prompt(opts)
         opts = parse_img_cond_path(opts)
 
+    dtype = get_dtype(str(device))
     while opts is not None:
         if opts.seed is None:
             opts.seed = rng.seed()
@@ -218,9 +220,12 @@ def main(
             opts.height,
             opts.width,
             device=torch_device,
-            dtype=torch.bfloat16,
+            dtype=dtype,
             seed=opts.seed,
         )
+        if str(device) == "hpu":
+            x = load_model_to_hpu(x)
+
         opts.seed = None
         if offload:
             ae = ae.cpu()
@@ -253,7 +258,7 @@ def main(
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.height, opts.width)
-        with torch.autocast(device_type=torch_device.type, dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch_device.type, dtype=dtype):
             x = ae.decode(x)
 
         if torch.cuda.is_available():

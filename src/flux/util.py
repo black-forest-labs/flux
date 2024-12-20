@@ -1,3 +1,4 @@
+import importlib.util
 import os
 from dataclasses import dataclass
 
@@ -11,6 +12,50 @@ from safetensors.torch import load_file as load_sft
 from flux.model import Flux, FluxLoraWrapper, FluxParams
 from flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
 from flux.modules.conditioner import HFEmbedder
+from hpu_utils import load_model_to_hpu
+
+
+def get_device_initial(preferred_device=None):
+    """
+    Determine the appropriate device to use (cuda, hpu, or cpu).
+
+    Args:
+        preferred_device (str): User-preferred device ('cuda', 'hpu', or 'cpu').
+
+    Returns:
+        str: Device string ('cuda', 'hpu', or 'cpu').
+    """
+    # Check for HPU support
+    if importlib.util.find_spec("habana_frameworks") is not None:
+        from habana_frameworks.torch.utils.library_loader import load_habana_module
+
+        load_habana_module()
+        if torch.hpu.is_available():
+            if preferred_device == "hpu" or preferred_device is None:
+                return "hpu"
+
+    # Check for CUDA (GPU support)
+    if torch.cuda.is_available():
+        if preferred_device == "cuda" or preferred_device is None:
+            return "cuda"
+
+    # Default to CPU
+    return "cpu"
+
+
+def get_dtype(device: str) -> torch.dtype:
+    """
+    Determine the appropriate dtype to use based on the device.
+
+    Args:
+        device (str): Device string ('cuda', 'hpu', or 'cpu').
+
+    Returns:
+        torch.dtype: Data type (torch.float32 or torch.bfloat16).
+    """
+    if "hpu" in device:
+        return torch.float32
+    return torch.bfloat16
 
 
 def save_image(
@@ -314,7 +359,7 @@ def print_load_warning(missing: list[str], unexpected: list[str]) -> None:
 
 
 def load_flow_model(
-    name: str, device: str | torch.device = "cuda", hf_download: bool = True, verbose: bool = False
+    name: str, device: str | torch.device = get_device_initial(), hf_download: bool = True, verbose: bool = False
 ) -> Flux:
     # Loading Flux
     print("Init model")
@@ -328,11 +373,12 @@ def load_flow_model(
     ):
         ckpt_path = hf_hub_download(configs[name].repo_id, configs[name].repo_flow)
 
+    dtype = get_dtype(str(device))
     with torch.device("meta" if ckpt_path is not None else device):
         if lora_path is not None:
-            model = FluxLoraWrapper(params=configs[name].params).to(torch.bfloat16)
+            model = FluxLoraWrapper(params=configs[name].params).to(dtype)
         else:
-            model = Flux(configs[name].params).to(torch.bfloat16)
+            model = Flux(configs[name].params).to(dtype)
 
     if ckpt_path is not None:
         print("Loading checkpoint")
@@ -353,16 +399,28 @@ def load_flow_model(
     return model
 
 
-def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
+def load_t5(device: str | torch.device = get_device_initial(), max_length: int = 512) -> HFEmbedder:
+    dtype = get_dtype(str(device))
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
-    return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
+    model_init = HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=dtype)
+    if str(device) == "hpu":
+        """ Load the model to HPU """
+        model = load_model_to_hpu(model_init)
+        return model
+    return model_init.to(device)
 
 
-def load_clip(device: str | torch.device = "cuda") -> HFEmbedder:
-    return HFEmbedder("openai/clip-vit-large-patch14", max_length=77, torch_dtype=torch.bfloat16).to(device)
+def load_clip(device: str | torch.device = get_device_initial()) -> HFEmbedder:
+    dtype = get_dtype(str(device))
+    model_init = HFEmbedder("openai/clip-vit-base-patch16", max_length=77, torch_dtype=dtype)
+    if str(device) == "hpu":
+        """ Load the model to HPU """
+        model = load_model_to_hpu(model_init)
+        return model
+    return model_init.to(device)
 
 
-def load_ae(name: str, device: str | torch.device = "cuda", hf_download: bool = True) -> AutoEncoder:
+def load_ae(name: str, device: str | torch.device = get_device_initial(), hf_download: bool = True) -> AutoEncoder:
     ckpt_path = configs[name].ae_path
     if (
         ckpt_path is None
