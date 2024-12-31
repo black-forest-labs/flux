@@ -85,3 +85,16 @@ $ python -m flux.api --prompt="A beautiful beach" save outputs/api
 # open the image directly
 $ python -m flux.api --prompt="A beautiful beach" image show
 ```
+
+## Citation
+
+If you find the provided code or models useful for your research, consider citing them as:
+
+```bib
+@misc{flux2023,
+    author = {Black Forest Labs},
+    title = {FLUX.1},
+    year = {2023},
+    howpublished = {\url{https://github.com/black-forest-labs/flux}},
+}
+```
