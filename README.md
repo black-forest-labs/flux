@@ -92,9 +92,9 @@ If you find the provided code or models useful for your research, consider citin
 
 ```bib
 @misc{flux2023,
-    author = {Black Forest Labs},
-    title = {FLUX.1},
-    year = {2023},
-    howpublished = {\url{https://github.com/black-forest-labs/flux}},
+    author={Black Forest Labs},
+    title={FLUX},
+    year={2023},
+    howpublished={\url{https://github.com/black-forest-labs/flux}},
 }
 ```
