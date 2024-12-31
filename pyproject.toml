@@ -33,9 +33,13 @@ streamlit = [
 gradio = [
   "gradio",
 ]
+fastapi = [
+  "fastapi",
+]
 all = [
   "flux[streamlit]",
   "flux[gradio]",
+  "flux[fastapi]",
 ]
 
 [project.scripts]

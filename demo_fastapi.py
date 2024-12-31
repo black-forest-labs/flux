@@ -1,17 +1,29 @@
 import os
 import time
 import uuid
+from typing import Any
 
-import gradio as gr
 import numpy as np
 import torch
+import uvicorn
 from einops import rearrange
+from fastapi import APIRouter, FastAPI
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import ExifTags, Image
+from pydantic import BaseModel
 from transformers import pipeline
 
 from flux.cli import SamplingOptions
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
+from flux.util import (
+    configs,
+    embed_watermark,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+)
 
 NSFW_THRESHOLD = 0.85
 
@@ -65,11 +77,12 @@ class FluxGenerator:
         image2image_strength=0.0,
         add_sampling_metadata=True,
     ):
-        nsfw_text = self.nsfw_text_classifier(prompt)[0]
-        if nsfw_text["label"].lower() == "nsfw":
-            nsfw_text_score = nsfw_text["score"]
+        nsfw_text = self.nsfw_text_classifier(prompt)[0]  # type: ignore
+        if nsfw_text["label"].lower() == "nsfw":  # type: ignore
+            nsfw_text_score = nsfw_text["score"]  # type: ignore
         else:
-            nsfw_text_score = 1 - nsfw_text["score"]
+            nsfw_text_score = 1 - nsfw_text["score"]  # type: ignore
+        print(f"NSFW text score: {nsfw_text_score}")
         print(f"NSFW text score: {nsfw_text_score}")
         if nsfw_text_score > NSFW_THRESHOLD:
             return (
@@ -167,7 +180,11 @@ class FluxGenerator:
         x = rearrange(x[0], "c h w -> h w c")
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_image_score = [x["score"] for x in self.nsfw_image_classifier(img) if x["label"] == "nsfw"][0]
+        nsfw_image_score = [
+            x["score"]  # type: ignore
+            for x in self.nsfw_image_classifier(img)  # type: ignore
+            if x["label"] == "nsfw"  # type: ignore
+        ][0]
         print(f"NSFW image score: {nsfw_image_score}")
 
         if nsfw_image_score < NSFW_THRESHOLD:
@@ -195,91 +212,48 @@ class FluxGenerator:
             )
 
 
-def create_demo(
-    model_name: str,
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
-    offload: bool = False,
-):
-    generator = FluxGenerator(model_name, device, offload)
-    is_schnell = model_name == "flux-schnell"
+class Request(BaseModel):
+    width: int = 1024
+    height: int = 1024
+    num_steps: int = 4
+    guidance: float = 3.5
+    seed: float = -1
+    prompt: str
+    init_image: Any | None = None
+    image2image_strength: float = 0.0
+    add_sampling_metadata: bool = True
 
-    with gr.Blocks(theme="lone17/kotaemon") as demo:
-        gr.Markdown(f"# Flux Image Generation Demo - Model: {model_name}")
 
-        with gr.Row():
-            with gr.Column():
-                prompt = gr.Textbox(
-                    label="Prompt",
-                    value=(
-                        "a photo of a forest with mist swirling around the tree trunks."
-                        ' The word "FLUX" is painted over it in big, red brush strokes'
-                        " with visible texture"
-                    ),
-                )
-                do_img2img = gr.Checkbox(label="Image to Image", value=False, interactive=not is_schnell)
-                init_image = gr.Image(label="Input Image", visible=False)
-                image2image_strength = gr.Slider(
-                    0.0, 1.0, 0.8, step=0.1, label="Noising strength", visible=False
-                )
+class Response(BaseModel):
+    status: int
+    link: str
 
-                image2image_strength = gr.Slider(
-                    0.0, 1.0, 0.8, step=0.1, label="Noising strength", visible=False
-                )
 
-                with gr.Accordion("Advanced Options", open=False):
-                    width = gr.Slider(128, 8192, 1360, step=16, label="Width")
-                    height = gr.Slider(128, 8192, 768, step=16, label="Height")
-                    num_steps = gr.Slider(1, 50, 4 if is_schnell else 50, step=1, label="Number of steps")
-                    guidance = gr.Slider(
-                        1.0,
-                        10.0,
-                        3.5,
-                        step=0.1,
-                        label="Guidance",
-                        interactive=not is_schnell,
-                    )
-                    seed = gr.Textbox(-1, label="Seed (-1 for random)")
-                    add_sampling_metadata = gr.Checkbox(
-                        label="Add sampling parameters to metadata?", value=True
-                    )
+class ImageGenerationAPI:
+    def __init__(self, model_name, device="cuda", offload=False):
+        self.generator = FluxGenerator(model_name, device, offload)
+        self.router = APIRouter()
+        self.router.add_api_route("/generate", self.generate, methods=["POST"], response_model=Response)
 
-                    add_sampling_metadata = gr.Checkbox(
-                        label="Add sampling parameters to metadata?", value=True
-                    )
-
-                generate_btn = gr.Button("Generate")
-
-            with gr.Column():
-                output_image = gr.Image(label="Generated Image")
-                seed_output = gr.Number(label="Used Seed")
-                warning_text = gr.Textbox(label="Warning", visible=True)
-                download_btn = gr.File(label="Download full-resolution")
-
-        def update_img2img(do_img2img):
-            return {
-                init_image: gr.update(visible=do_img2img),
-                image2image_strength: gr.update(visible=do_img2img),
-            }
-
-        do_img2img.change(update_img2img, do_img2img, [init_image, image2image_strength])
-
-        generate_btn.click(
-            fn=generator.generate_image,
-            inputs=[
-                width,
-                height,
-                num_steps,
-                guidance,
-                seed,
-                prompt,
-                init_image,
-                image2image_strength,
-                add_sampling_metadata,
-            ],
-            outputs=[output_image, seed_output, download_btn, warning_text],
+    def generate(self, request: Request):
+        output_image, seed_output, download_btn, warning_text = self.generator.generate_image(
+            **request.model_dump()
         )
 
-    return demo
+        if output_image is not None:
+            filename = f"{int(time.time())}.jpg"
+            output_path = f"output/{filename}"
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            output_image.save(output_path)
+
+            return JSONResponse(
+                content={
+                    "status": 200,
+                    "link": f"/generation_output/{filename}",
+                }
+            )
+
+        return JSONResponse(content={"status": 400, "link": None})
 
 
 if __name__ == "__main__":
@@ -311,12 +285,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Create a public link to your demo",
     )
-    parser.add_argument("--port", type=int, default=8860, help="Port to use.")
+    parser.add_argument("--port", type=int, default=9000, help="Port to use.")
     args = parser.parse_args()
 
-    demo = create_demo(args.name, args.device, args.offload)
-    demo.launch(
-        share=args.share,
-        server_name="0.0.0.0",
-        server_port=args.port,
-    )
+    app = FastAPI(title="Flux Image Generation")
+    app.mount("/generation_output", StaticFiles(directory="output/"), name="generation_output")
+    api = ImageGenerationAPI(args.name, args.device, args.offload)
+    app.include_router(api.router)
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
