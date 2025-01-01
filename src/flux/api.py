@@ -146,7 +146,9 @@ class ImageRequest:
         )
         result = response.json()
         if response.status_code != 200:
-            raise ApiException(status_code=response.status_code, detail=result.get("detail"))
+            raise ApiException(
+                status_code=response.status_code, detail=result.get("detail")
+            )
         self.request_id = response.json()["id"]
 
     def retrieve(self) -> dict:
@@ -168,13 +170,17 @@ class ImageRequest:
             )
             result = response.json()
             if "status" not in result:
-                raise ApiException(status_code=response.status_code, detail=result.get("detail"))
+                raise ApiException(
+                    status_code=response.status_code, detail=result.get("detail")
+                )
             elif result["status"] == "Ready":
                 self.result = result["result"]
             elif result["status"] == "Pending":
                 time.sleep(0.5)
             else:
-                raise ApiException(status_code=200, detail=f"API returned status '{result['status']}'")
+                raise ApiException(
+                    status_code=200, detail=f"API returned status '{result['status']}'"
+                )
         return self.result
 
     @property
