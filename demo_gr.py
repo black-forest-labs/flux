@@ -162,7 +162,7 @@ class FluxGenerator:
 
 
 def create_demo(
-    model_name: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", offload: bool = False
+    model_name: str, device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu', offload: bool = False
 ):
     generator = FluxGenerator(model_name, device, offload)
     is_schnell = model_name == "flux-schnell"
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         "--name", type=str, default="flux-schnell", choices=list(configs.keys()), help="Model name"
     )
     parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use"
+        "--device", type=str, default='cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu', help="Device to use"
     )
     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")

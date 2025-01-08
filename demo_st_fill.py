@@ -138,7 +138,7 @@ def downscale_image(img: Image.Image, scale_factor: float) -> Image.Image:
 
 @torch.inference_mode()
 def main(
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu',
     offload: bool = False,
     output_dir: str = "output",
 ):

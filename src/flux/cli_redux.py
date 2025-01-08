@@ -134,7 +134,7 @@ def main(
     width: int = 1360,
     height: int = 768,
     seed: int | None = None,
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu',
     num_steps: int | None = None,
     loop: bool = False,
     guidance: float = 2.5,
