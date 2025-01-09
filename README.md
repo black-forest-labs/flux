@@ -19,7 +19,7 @@ pip install -e ".[all]"
 
 ### Models
 
-We are offering an extensive suite of models. For more information about the invidual models, please refer to the link under **Usage**.
+We are offering an extensive suite of models. For more information about the individual models, please refer to the link under **Usage**.
 
 | Name                        | Usage                                                      | HuggingFace repo                                               | License                                                               |
 | --------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
