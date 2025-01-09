@@ -165,7 +165,7 @@ def main(
     height: int = 1024,
     seed: int | None = None,
     prompt: str = "a robot made out of gold",
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu',
     num_steps: int = 50,
     loop: bool = False,
     guidance: float | None = None,

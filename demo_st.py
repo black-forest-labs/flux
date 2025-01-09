@@ -55,7 +55,7 @@ def get_image() -> torch.Tensor | None:
 
 @torch.inference_mode()
 def main(
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu',
     offload: bool = False,
     output_dir: str = "output",
 ):
