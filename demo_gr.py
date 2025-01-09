@@ -15,7 +15,6 @@ from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_mo
 
 NSFW_THRESHOLD = 0.85
 
-
 def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool):
     t5 = load_t5(device, max_length=256 if is_schnell else 512)
     clip = load_clip(device)
@@ -23,7 +22,6 @@ def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool)
     ae = load_ae(name, device="cpu" if offload else device)
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
     return model, ae, t5, clip, nsfw_classifier
-
 
 class FluxGenerator:
     def __init__(self, model_name: str, device: str, offload: bool):
@@ -153,7 +151,6 @@ class FluxGenerator:
             exif_data[ExifTags.Base.Model] = self.model_name
             if add_sampling_metadata:
                 exif_data[ExifTags.Base.ImageDescription] = prompt
-
             img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
 
             return img, str(opts.seed), filename, None

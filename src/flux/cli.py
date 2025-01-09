@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
+from cuda import cudart
 from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from flux.trt.trt_manager import TRTManager
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
@@ -108,6 +110,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
+    trt: bool = False,
+    **kwargs: dict | None,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -126,6 +130,8 @@ def main(
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
+        trt: use TensorRT backend for optimized inference
+        kwargs: additional arguments for TensorRT support
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -157,6 +163,58 @@ def main(
     clip = load_clip(torch_device)
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
+
+    if trt:
+        # offload to CPU to save memory
+        ae = ae.cpu()
+        model = model.cpu()
+        clip = clip.cpu()
+        t5 = t5.cpu()
+
+        torch.cuda.empty_cache()
+
+        trt_ctx_manager = TRTManager(
+            bf16=True,
+            device=torch_device,
+        )
+
+        engines = trt_ctx_manager.load_engines(
+            models={
+                "clip": clip,
+                "transformer": model,
+                "t5": t5,
+                "vae": ae,
+            },
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            opt_image_height=height,
+            opt_image_width=width,
+        )
+
+        torch.cuda.synchronize()
+
+        trt_ctx_manager.init_runtime()
+        stream = cudart.cudaStreamCreate()[1]
+
+        for engine in engines.values():
+            engine.load(stream)
+
+        calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+        _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
+
+        for engine_name, engine in engines.items():
+            engine.activate(shared_device_memory)
+            shape_dict = engine.get_shape_dict(
+                batch_size=1,
+                image_height=height,
+                image_width=width,
+            )
+            engine.allocate_buffers(shape_dict, device=torch_device)
+
+        ae = engines["vae"]
+        model = engines["transformer"]
+        clip = engines["clip"]
+        t5 = engines["t5"]
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
