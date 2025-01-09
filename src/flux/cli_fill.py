@@ -271,7 +271,7 @@ def main(
         )
         opts.seed = None
         if offload:
-            t5, clip, ae = t5.to(torch_device), clip.to(torch_device), ae.to(torch.device)
+            t5, clip, ae = t5.to(torch_device), clip.to(torch_device), ae.to(torch_device)
         inp = prepare_fill(
             t5,
             clip,
