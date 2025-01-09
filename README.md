@@ -14,11 +14,6 @@ cd $HOME/flux
 # Using pyvenv
 python3.10 -m venv .venv
 source .venv/bin/activate
-
-# Using conda (Optional)
-conda create -n flux python=3.10 -y
-conda activate flux
-
 pip install -e ".[all]"
 ```
 
