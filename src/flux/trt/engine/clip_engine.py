@@ -42,6 +42,8 @@ class CLIPEngine(CLIPMixin, BaseEngine):
         self,
         prompt: list[str],
     ) -> torch.Tensor:
+        shape_dict = self.get_shape_dict(batch_size=len(prompt))
+        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
         with torch.inference_mode():
             feed_dict = self.tokenizer(
                 prompt,
@@ -62,8 +64,6 @@ class CLIPEngine(CLIPMixin, BaseEngine):
     def get_shape_dict(
         self,
         batch_size: int,
-        image_height: int,
-        image_width: int,
     ) -> dict[str, tuple]:
         return {
             "input_ids": (batch_size, self.text_maxlen),

@@ -21,6 +21,11 @@ from flux.trt.mixin import VAEMixin
 
 
 class VAEEngine(VAEMixin, BaseEngine):
+
+    @property
+    def decoder(self):
+        return self
+
     def __init__(
         self,
         z_channels: int,
@@ -45,6 +50,13 @@ class VAEEngine(VAEMixin, BaseEngine):
 
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
+        shape_dict = self.get_shape_dict(
+            batch_size=z.size(0),
+            latent_height=z.size(2),
+            latent_width=z.size(3),
+        )
+        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
+
         z = z.to(dtype=self.tensors["latent"].dtype)
         z = (z / self.scale_factor) + self.shift_factor
         feed_dict = {"latent": z}
@@ -52,15 +64,10 @@ class VAEEngine(VAEMixin, BaseEngine):
         return images
 
 
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
-    ) -> dict[str, tuple]:
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
+    def get_shape_dict(self, batch_size: int, latent_height: int, latent_width: int) -> dict[str, tuple]:
+        image_height, image_width = self.get_img_dim(
+            latent_height=latent_height,
+            latent_width=latent_width,
         )
         return {
             "latent": (batch_size, self.z_channels, latent_height, latent_width),
