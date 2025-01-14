@@ -10,8 +10,8 @@ from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 from flux.trt.trt_manager import TRTManager
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
 
@@ -178,8 +178,8 @@ def main(
         trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,
+            static_shape=False,
         )
-
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
@@ -196,22 +196,19 @@ def main(
         torch.cuda.synchronize()
 
         trt_ctx_manager.init_runtime()
-        stream = cudart.cudaStreamCreate()[1]
+        # TODO: refactor. stream should be part of engine constructor maybe !!
+        for _, engine in engines.items():
+            engine.stream = trt_ctx_manager.stream
 
-        for engine in engines.values():
-            engine.load(stream)
+        if not offload:
+            for _, engine in engines.items():
+                engine.load()
 
-        calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
-        _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
+            calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+            _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
 
-        for engine_name, engine in engines.items():
-            engine.activate(shared_device_memory)
-            shape_dict = engine.get_shape_dict(
-                batch_size=1,
-                image_height=height,
-                image_width=width,
-            )
-            engine.allocate_buffers(shape_dict, device=torch_device)
+            for _, engine in engines.items():
+                engine.activate(device=torch_device, shared_device_memory=shared_device_memory)
 
         ae = engines["vae"]
         model = engines["transformer"]
@@ -291,6 +288,8 @@ def main(
         else:
             opts = None
 
+    if trt:
+        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)
