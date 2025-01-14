@@ -61,6 +61,7 @@ class TRTManager:
         bf16=False,
         tf32=True,
         static_batch=True,
+        static_shape=True,
         verbose=True,
         **kwargs,
     ):
@@ -70,6 +71,7 @@ class TRTManager:
         self.bf16 = bf16
         self.tf32 = tf32
         self.static_batch = static_batch
+        self.static_shape = static_shape
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
@@ -258,6 +260,7 @@ class TRTManager:
         opt_image_height: int,
         opt_image_width: int,
         static_batch: bool,
+        static_shape: bool,
         optimization_level: int,
         enable_all_tactics: bool,
         timing_cache,
@@ -292,6 +295,7 @@ class TRTManager:
                 image_height=opt_image_height,
                 image_width=opt_image_width,
                 static_batch=static_batch,
+                static_shape=static_shape,
             ),
             enable_all_tactics=enable_all_tactics,
             timing_cache=timing_cache,
