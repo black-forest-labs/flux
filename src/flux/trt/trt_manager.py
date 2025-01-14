@@ -14,16 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import os
 import sys
-import gc
-import torch
-import tensorrt as trt
 from typing import Any, Union
 
-from flux.trt.exporter import BaseExporter, CLIPExporter, TransformerExporter, T5Exporter, VAEExporter
+import tensorrt as trt
+import torch
+from cuda import cudart
+
+from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEEngine
+from flux.trt.exporter import BaseExporter, CLIPExporter, T5Exporter, TransformerExporter, VAEExporter
 from flux.trt.mixin import BaseMixin
-from flux.trt.engine import BaseEngine, CLIPEngine, TransformerEngine, T5Engine, VAEEngine
 
 TRT_LOGGER = trt.Logger()
 
@@ -357,6 +359,7 @@ class TRTManager:
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
                 static_batch=self.static_batch,
+                static_shape=self.static_shape,
                 optimization_level=optimization_level,
                 enable_all_tactics=enable_all_tactics,
                 timing_cache=timing_cache,
@@ -388,7 +391,10 @@ class TRTManager:
         self.runtime = trt.Runtime(TRT_LOGGER)
         enter_fn = type(self.runtime).__enter__
         enter_fn(self.runtime)
+        self.stream = cudart.cudaStreamCreate()[1]
 
     def stop_runtime(self):
         exit_fn = type(self.runtime).__exit__
         exit_fn(self.runtime, *sys.exc_info())
+        cudart.cudaStreamDestroy(self.stream)
+        del self.stream
