@@ -1,6 +1,5 @@
 from torch import Tensor, nn
-from transformers import (CLIPTextModel, CLIPTokenizer, T5EncoderModel,
-                          T5Tokenizer)
+from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
 
 
 class HFEmbedder(nn.Module):

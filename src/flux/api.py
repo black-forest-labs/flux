@@ -94,23 +94,14 @@ class ImageRequest:
             elif interval is not None and not (1.0 <= interval <= 4.0):
                 raise ValueError(f"interval must be between 1 and 4, got {interval}")
             elif safety_tolerance is not None and not (0 <= safety_tolerance <= 6.0):
-                raise ValueError(
-                    f"safety_tolerance must be between 0 and 6, got {interval}"
-                )
+                raise ValueError(f"safety_tolerance must be between 0 and 6, got {interval}")
 
             if name == "flux.1-dev":
                 if interval is not None:
                     raise ValueError("Interval is not supported for flux.1-dev")
             if name == "flux.1.1-pro":
-                if (
-                    interval is not None
-                    or num_steps is not None
-                    or guidance is not None
-                ):
-                    raise ValueError(
-                        "Interval, num_steps and guidance are not supported for "
-                        "flux.1.1-pro"
-                    )
+                if interval is not None or num_steps is not None or guidance is not None:
+                    raise ValueError("Interval, num_steps and guidance are not supported for " "flux.1.1-pro")
 
         self.name = name
         self.request_json = {
@@ -124,9 +115,7 @@ class ImageRequest:
             "interval": interval,
             "safety_tolerance": safety_tolerance,
         }
-        self.request_json = {
-            key: value for key, value in self.request_json.items() if value is not None
-        }
+        self.request_json = {key: value for key, value in self.request_json.items() if value is not None}
 
         self.request_id: str | None = None
         self.result: dict | None = None

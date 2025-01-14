@@ -5,24 +5,11 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
-from einops import rearrange
 from fire import Fire
-from PIL import ExifTags, Image
-
-from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import (
-    configs,
-    embed_watermark,
-    load_ae,
-    load_clip,
-    load_flow_model,
-    load_t5,
-)
 from transformers import pipeline
 
-from flux.trt.trt_manager import TRTManager
-from cuda import cudart
-
+from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
 
@@ -146,9 +133,7 @@ def main(
         trt: use TensorRT backend for optimized inference
         kwargs: additional arguments for TensorRT support
     """
-    nsfw_classifier = pipeline(
-        "image-classification", model="Falconsai/nsfw_image_detection", device=device
-    )
+    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
     if name not in configs:
         available = ", ".join(configs.keys())
@@ -167,11 +152,7 @@ def main(
         os.makedirs(output_dir)
         idx = 0
     else:
-        fns = [
-            fn
-            for fn in iglob(output_name.format(idx="*"))
-            if re.search(r"img_[0-9]+\.jpg$", fn)
-        ]
+        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
         if len(fns) > 0:
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
@@ -299,27 +280,8 @@ def main(
 
         fn = output_name.format(idx=idx)
         print(f"Done in {t1 - t0:.1f}s. Saving {fn}")
-        # bring into PIL format and save
-        x = x.clamp(-1, 1)
-        x = embed_watermark(x.float())
-        x = rearrange(x[0], "c h w -> h w c")
 
-        img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        nsfw_score = [x["score"] for x in nsfw_classifier(img) if x["label"] == "nsfw"][
-            0
-        ]
-
-        if nsfw_score < NSFW_THRESHOLD:
-            exif_data = Image.Exif()
-            exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
-            exif_data[ExifTags.Base.Make] = "Black Forest Labs"
-            exif_data[ExifTags.Base.Model] = name
-            if add_sampling_metadata:
-                exif_data[ExifTags.Base.ImageDescription] = prompt
-            img.save(fn, exif=exif_data, quality=95, subsampling=0)
-            idx += 1
-        else:
-            print("Your generated image may contain NSFW content.")
+        idx = save_image(nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt)
 
         if loop:
             print("-" * 80)
