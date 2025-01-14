@@ -121,7 +121,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height, latent_width = self.get_latent_dims(
+        latent_height, latent_width = self.get_latent_dim(
             image_height=image_height,
             image_width=image_width,
         )

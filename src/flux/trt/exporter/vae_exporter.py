@@ -45,8 +45,8 @@ class VAEExporter(VAEMixin, BaseExporter):
             verbose=verbose,
         )
 
-        self.min_image_shape = 256  # min image resolution: 256x256
-        self.max_image_shape = 1360  # max image resolution: 1360x1360
+        self.min_image_shape = 768
+        self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
 
@@ -74,7 +74,7 @@ class VAEExporter(VAEMixin, BaseExporter):
         batch_size: int,
         image_height: int,
         image_width: int,
-    ) -> None | tuple[int, int]:
+    ) -> tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
@@ -88,27 +88,68 @@ class VAEExporter(VAEMixin, BaseExporter):
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
         return (latent_height, latent_width)
 
+    def get_minmax_dims(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: bool,
+        static_shape: bool,
+    ):
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+
+        latent_height = image_height // self.compression_factor
+        latent_width = image_width // self.compression_factor
+        min_latent_height = latent_height if static_shape else self.min_latent_shape
+        max_latent_height = latent_height if static_shape else self.max_latent_shape
+        min_latent_width = latent_width if static_shape else self.min_latent_shape
+        max_latent_width = latent_width if static_shape else self.max_latent_shape
+
+        return (
+            min_batch,
+            max_batch,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        )
+
+
     def get_input_profile(
         self,
         batch_size: int,
         image_height: int,
         image_width: int,
         static_batch: bool,
+        static_shape: bool,
     ):
-        min_batch = batch_size if static_batch else self.min_batch
-        max_batch = batch_size if static_batch else self.max_batch
-
         latent_height, latent_width = self.check_dims(
             batch_size=batch_size,
             image_height=image_height,
             image_width=image_width,
         )
 
+        (
+            min_batch,
+            max_batch,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        ) = self.get_minmax_dims(
+            batch_size=batch_size,
+            image_height=image_height,
+            image_width=image_width,
+            static_batch=static_batch,
+            static_shape=static_shape,
+        )
+
         return {
             "latent": [
-                (min_batch, self.z_channels, latent_height, latent_width),
+                (min_batch, self.z_channels, min_latent_height, min_latent_width),
                 (batch_size, self.z_channels, latent_height, latent_width),
-                (max_batch, self.z_channels, latent_height, latent_width),
+                (max_batch, self.z_channels, max_latent_height, max_latent_width),
             ]
         }
 
