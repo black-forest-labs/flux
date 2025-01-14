@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
 from math import ceil
+from typing import Any
 
 from flux.trt.mixin.base_mixin import BaseMixin
 
@@ -54,3 +54,13 @@ class VAEMixin(BaseMixin):
         latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
 
         return (latent_height, latent_width)
+
+    def get_img_dim(
+        self,
+        latent_height: int,
+        latent_width: int,
+    ) -> tuple[int, int]:
+        image_height = latent_height * self.compression_factor
+        image_width = latent_width * self.compression_factor
+
+        return (image_height, image_width)
