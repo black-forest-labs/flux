@@ -63,7 +63,7 @@ class CLIPExporter(CLIPMixin, BaseExporter):
     def check_dims(
         self,
         batch_size: int,
-    ) -> None | tuple[int, int]:
+    ) -> None:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
 
     def get_sample_input(
@@ -86,6 +86,7 @@ class CLIPExporter(CLIPMixin, BaseExporter):
         image_height: int,
         image_width: int,
         static_batch: bool,
+        static_shape: bool,
     ):
         min_batch = batch_size if static_batch else self.min_batch
         max_batch = batch_size if static_batch else self.max_batch
