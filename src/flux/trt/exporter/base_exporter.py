@@ -42,6 +42,7 @@ import tensorrt as trt
 from flux.modules.conditioner import HFEmbedder
 from flux.model import Flux
 
+
 class TransformersModelWrapper(torch.nn.Module):
     def __init__(self, model: HFEmbedder, output_name: str):
         super().__init__()
@@ -349,7 +350,13 @@ class BaseExporter(ABC):
         flags = []
         if native_instancenorm:
             flags.append(trt.OnnxParserFlag.NATIVE_INSTANCENORM)
-        network = network_from_onnx_path(onnx_path, flags=flags, strongly_typed=strongly_typed)
+
+        print(f"Strongly typed mode is {strongly_typed} for {onnx_path}")
+        network = network_from_onnx_path(
+            onnx_path,
+            flags=flags,
+            strongly_typed=strongly_typed,
+        )
         if update_output_names:
             print(f"Updating network outputs to {update_output_names}")
             network = ModifyNetworkOutputs(network, update_output_names)
