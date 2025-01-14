@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 import gc
+from abc import ABC, abstractmethod
+from collections import OrderedDict
 
+import tensorrt as trt
+import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
-import tensorrt as trt
-import torch
-from abc import ABC, abstractmethod
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -38,9 +38,7 @@ def CUASSERT(cuda_ret):
     return None
 
 
-
 class BaseEngine(ABC):
-
     @property
     def trt_to_torch_dtype_dict(self):
         return {
@@ -59,10 +57,11 @@ class BaseEngine(ABC):
         engine_path: str,
     ):
         self.engine_path = engine_path
-        self.stream: cudart.cudaStream_t | None = None
+        self.stream = None
         self.engine: trt.ICudaEngine | None = None
         self.context = None
         self.tensors = OrderedDict()
+        self.shared_device_memory: int | None = None
 
     @abstractmethod
     def __call__(self, *args, **Kwargs) -> torch.Tensor | dict[str, torch.Tensor] | tuple[torch.Tensor]:
@@ -71,29 +70,60 @@ class BaseEngine(ABC):
     @abstractmethod
     def get_shape_dict(
         self,
-        batch_size: int,
-        image_height: int,
-        image_width: int,
+        *args,
+        **kwargs,
     ) -> dict[str, tuple]:
         pass
 
-    def load(
-        self,
-        stream: cudart.cudaStream_t,
-    ):
+    def cpu(self):
+        self.deallocate_buffers()
+        self.deactivate()
+        self.unload()
+        if self.shared_device_memory is not None:
+            cudart.cudaFree(self.shared_device_memory)
+            self.shared_device_memory = None
+        return self
+
+    def to(self, device: str):
+        self.load()
+        self.activate(device=device)
+        return self
+
+    def load(self):
+        if self.engine is not None:
+            print(f"[W]: Engine {self.engine_path} already loaded, skip reloading")
+            return
+
+        if not hasattr(self, "engine_bytes_cpu") or self.engine_bytes_cpu is None:
+            # keep a cpu copy of the engine to reduce reloading time.
+            print(f"Loading TensorRT engine to cpu bytes: {self.engine_path}")
+            self.engine_bytes_cpu = bytes_from_path(self.engine_path)
+
         print(f"Loading TensorRT engine: {self.engine_path}")
-        self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
-        self.stream = stream
+        self.engine = engine_from_bytes(self.engine_bytes_cpu)
+
+    def unload(self):
+        if self.engine is not None:
+            print(f"Unloading TensorRT engine: {self.engine_path}")
+            del self.engine
+            self.engine = None
+            gc.collect()
+        else:
+            print(f"[W]: Unload an unloaded engine {self.engine_path}, skip unloading")
 
     def activate(
         self,
+        device: str,
         device_memory: int | None = None,
     ):
+        self.device = device
         if device_memory:
             self.context = self.engine.create_execution_context_without_device_memory()
             self.context.device_memory = device_memory
+            self.shared_device_memory = device_memory
         else:
             self.context = self.engine.create_execution_context()
+            self.shared_device_memory = self.engine.device_memory_size
 
     def reactivate(self, device_memory: int):
         assert self.context
@@ -102,7 +132,6 @@ class BaseEngine(ABC):
     def deactivate(self):
         del self.context
         self.context = None
-        gc.collect()
 
     def allocate_buffers(
         self,
@@ -112,6 +141,9 @@ class BaseEngine(ABC):
         for binding in range(self.engine.num_io_tensors):
             tensor_name = self.engine.get_tensor_name(binding)
             tensor_shape = shape_dict[tensor_name]
+
+            if tensor_name in self.tensors and self.tensors[tensor_name].shape == tensor_shape:
+                continue
 
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, tensor_shape)
@@ -123,9 +155,16 @@ class BaseEngine(ABC):
             self.tensors[tensor_name] = tensor
 
     def deallocate_buffers(self):
-        for idx in range(self.engine.num_io_tensors):
+        if self.engine is None:
+            return
+
+        for binding in range(self.engine.num_io_tensors):
             tensor_name = self.engine.get_tensor_name(binding)
-            del self.tensors[tensor_name]
+            if tensor_name in self.tensors:
+                del self.tensors[tensor_name]
+
+        torch.cuda.empty_cache()
+        self.tensors = OrderedDict()
 
     def infer(
         self,
