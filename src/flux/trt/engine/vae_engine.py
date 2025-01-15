@@ -16,16 +16,11 @@
 
 import torch
 
-from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine.base_engine import BaseEngine, Engine
 from flux.trt.mixin import VAEMixin
 
 
-class VAEEngine(VAEMixin, BaseEngine):
-
-    @property
-    def decoder(self):
-        return self
-
+class VAEDecoder(VAEMixin, Engine):
     def __init__(
         self,
         z_channels: int,
@@ -48,7 +43,6 @@ class VAEEngine(VAEMixin, BaseEngine):
     ) -> torch.Tensor:
         return self.decode(x)
 
-
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         shape_dict = self.get_shape_dict(
             batch_size=z.size(0),
@@ -63,7 +57,6 @@ class VAEEngine(VAEMixin, BaseEngine):
         images = self.infer(feed_dict=feed_dict)["images"].clone()
         return images
 
-
     def get_shape_dict(self, batch_size: int, latent_height: int, latent_width: int) -> dict[str, tuple]:
         image_height, image_width = self.get_img_dim(
             latent_height=latent_height,
@@ -73,3 +66,22 @@ class VAEEngine(VAEMixin, BaseEngine):
             "latent": (batch_size, self.z_channels, latent_height, latent_width),
             "images": (batch_size, 3, image_height, image_width),
         }
+
+
+class VAEEngine(BaseEngine):
+    def __init__(
+        self,
+        z_channels: int,
+        compression_factor: int,
+        scale_factor: float,
+        shift_factor: float,
+        engine_path: str,
+    ):
+        super().__init__()
+        self.decoder = VAEDecoder(
+            z_channels=z_channels,
+            compression_factor=compression_factor,
+            scale_factor=scale_factor,
+            shift_factor=shift_factor,
+            engine_path=engine_path,
+        )
