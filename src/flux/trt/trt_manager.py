@@ -23,27 +23,21 @@ import tensorrt as trt
 import torch
 from cuda import cudart
 
-from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEEngine
-from flux.trt.exporter import BaseExporter, CLIPExporter, T5Exporter, TransformerExporter, VAEExporter
+from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEDecoder, VAEEngine
+from flux.trt.exporter import BaseExporter, CLIPExporter, T5Exporter, TransformerExporter, VAEDecoderExporter
 from flux.trt.mixin import BaseMixin
 
 TRT_LOGGER = trt.Logger()
 
 
 class TRTManager:
-    __stages__ = ["clip", "t5", "transformer", "vae"]
-
-    @property
-    def stages(self) -> list[str]:
-        return self.__stages__
-
     @property
     def model_to_engine_class(self) -> dict[str, type[Union[BaseMixin, BaseEngine]]]:
         return {
             "clip": CLIPEngine,
             "transformer": TransformerEngine,
             "t5": T5Engine,
-            "vae": VAEEngine,
+            "vae_decoder": VAEDecoder,
         }
 
     @property
@@ -282,8 +276,10 @@ class TRTManager:
         bf16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.bf16
         strongly_typed = True if getattr(model_exporter, "build_strongly_typed", False) else False
 
-        extra_build_args = {"verbose": verbose}
-        extra_build_args["builder_optimization_level"] = optimization_level
+        extra_build_args = {
+            "verbose": verbose,
+            "builder_optimization_level": optimization_level,
+        }
 
         model_exporter.build(
             engine_path=model_config["engine_path"],
@@ -321,10 +317,7 @@ class TRTManager:
         optimization_level=3,
         enable_all_tactics=False,
         timing_cache=None,
-    ):
-        # assert all(
-        #     stage in models for stage in self.stages
-        # ), f"some stage is missing\n\tstages: {models.keys()}\n\tneeded stages: {self.stages}"
+    ) -> dict[str, BaseEngine]:
 
         self._create_directories(
             engine_dir=engine_dir,
