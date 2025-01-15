@@ -25,25 +25,22 @@ class VAEMixin(BaseMixin):
         self,
         z_channels: int,
         compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.z_channels = z_channels
         self.compression_factor = compression_factor
-        self.scale_factor = scale_factor
-        self.shift_factor = shift_factor
 
     def get_mixin_params(self) -> dict[str, Any]:
         """helper class that return the parameters used for construction"""
-        return {
+
+        mixin_params = {
             "z_channels": self.z_channels,
             "compression_factor": self.compression_factor,
-            "scale_factor": self.scale_factor,
-            "shift_factor": self.shift_factor,
         }
+
+        return mixin_params
 
     def get_latent_dim(
         self,
@@ -64,3 +61,34 @@ class VAEMixin(BaseMixin):
         image_width = latent_width * self.compression_factor
 
         return (image_height, image_width)
+
+
+class VAEDecoderMixin(VAEMixin):
+    def __init__(
+        self,
+        z_channels: int,
+        compression_factor: int,
+        scale_factor: float,
+        shift_factor: float,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            z_channels=z_channels,
+            compression_factor=compression_factor,
+            *args,
+            **kwargs,
+        )
+        self.scale_factor = scale_factor
+        self.shift_factor = shift_factor
+
+    def get_mixin_params(self) -> dict[str, Any]:
+        """helper class that return the parameters used for construction"""
+
+        mixin_params = {
+            "z_channels": self.z_channels,
+            "compression_factor": self.compression_factor,
+            "scale_factor": self.scale_factor,
+            "shift_factor": self.shift_factor,
+        }
+        return mixin_params

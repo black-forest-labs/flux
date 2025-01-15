@@ -180,12 +180,13 @@ def main(
             device=torch_device,
             static_shape=False,
         )
+        ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
                 "transformer": model,
                 "t5": t5,
-                "vae": ae,
+                "vae_decoder": ae.decoder,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),

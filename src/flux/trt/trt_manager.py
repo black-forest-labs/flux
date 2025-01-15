@@ -52,7 +52,7 @@ class TRTManager:
             "clip": CLIPExporter,
             "transformer": TransformerExporter,
             "t5": T5Exporter,
-            "vae": VAEExporter,
+            "vae_decoder": VAEDecoderExporter,
         }
 
     def __init__(
@@ -198,7 +198,7 @@ class TRTManager:
                 )
                 exporters[model_name] = exporter
 
-            elif model_name == "vae":
+            elif model_name == "vae_decoder":
                 # Accuracy issues with FP16 and BF16
                 # fallback to FP32
                 exporter = exporter_class(
@@ -378,6 +378,7 @@ class TRTManager:
             )
             engines[model_name] = engine
 
+        engines["vae"] = VAEEngine(decoder=engines.pop("vae_decoder"))
         return engines
 
     @staticmethod

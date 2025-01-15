@@ -16,15 +16,15 @@
 
 import torch
 from math import ceil
-from flux.modules.autoencoder import AutoEncoder
+from flux.modules.autoencoder import Decoder
 from flux.trt.exporter.base_exporter import BaseExporter
-from flux.trt.mixin import VAEMixin
+from flux.trt.mixin import VAEDecoderMixin
 
 
-class VAEExporter(VAEMixin, BaseExporter):
+class VAEDecoderExporter(VAEDecoderMixin, BaseExporter):
     def __init__(
         self,
-        model: AutoEncoder,
+        model: Decoder,
         fp16=False,
         tf32=True,
         bf16=False,
@@ -53,9 +53,6 @@ class VAEExporter(VAEMixin, BaseExporter):
         # set proper dtype
         self.prepare_model()
 
-    def get_model(self) -> torch.nn.Module:
-        self.model.forward = self.model.decode
-        return self.model
 
     def get_input_names(self):
         return ["latent"]

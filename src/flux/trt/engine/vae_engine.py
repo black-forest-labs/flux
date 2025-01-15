@@ -17,10 +17,10 @@
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
-from flux.trt.mixin import VAEMixin
+from flux.trt.mixin import VAEDecoderMixin, VAEMixin
 
 
-class VAEDecoder(VAEMixin, Engine):
+class VAEDecoder(VAEDecoderMixin, Engine):
     def __init__(
         self,
         z_channels: int,
@@ -39,11 +39,8 @@ class VAEDecoder(VAEMixin, Engine):
 
     def __call__(
         self,
-        x: torch.Tensor,
+        z: torch.Tensor,
     ) -> torch.Tensor:
-        return self.decode(x)
-
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
         shape_dict = self.get_shape_dict(
             batch_size=z.size(0),
             latent_height=z.size(2),
@@ -68,20 +65,90 @@ class VAEDecoder(VAEMixin, Engine):
         }
 
 
-class VAEEngine(BaseEngine):
+class VAEEncoder(VAEMixin, Engine):
     def __init__(
         self,
         z_channels: int,
         compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
         engine_path: str,
     ):
-        super().__init__()
-        self.decoder = VAEDecoder(
+        super().__init__(
             z_channels=z_channels,
             compression_factor=compression_factor,
-            scale_factor=scale_factor,
-            shift_factor=shift_factor,
             engine_path=engine_path,
         )
+
+    def __call__(
+        self,
+        x: torch.Tensor,
+    ) -> torch.Tensor:
+        shape_dict = self.get_shape_dict(
+            batch_size=x.size(0),
+            image_height=x.size(2),
+            image_width=x.size(3),
+        )
+        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
+
+        feed_dict = {"images": x}
+        latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+        return latent
+
+    def get_shape_dict(self, batch_size: int, image_height: int, image_width: int) -> dict[str, tuple]:
+        latent_height, latent_width = self.get_latent_dim(
+            image_height=image_height,
+            image_width=image_width,
+        )
+        return {
+            "images": (batch_size, 3, image_height, image_width),
+            "latent": (batch_size, self.z_channels, latent_height, latent_width),
+        }
+
+
+class VAEEngine(BaseEngine):
+    def __init__(
+        self,
+        decoder: VAEDecoder,
+        encoder: VAEEncoder | None = None,
+    ):
+        super().__init__()
+        self.decoder = decoder
+        self.encoder = encoder
+
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
+        return self.decoder(z)
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        assert self.encoder is not None, "An encoder is needed to encode an image"
+        return self.encoder(x)
+
+    def cpu(self):
+        self.decoder = self.decoder.cpu()
+        if self.encoder is not None:
+            self.encoder = self.encoder.cpu()
+        return self
+
+    def to(self, device):
+        self.decoder = self.decoder.to(device)
+        if self.encoder is not None:
+            self.encoder = self.encoder.to(device)
+        return self
+
+    def set_stream(self, stream):
+        self.decoder.set_stream(stream)
+        if self.encoder is not None:
+            self.encoder.set_stream(stream)
+
+    def load(self):
+        self.decoder.load()
+        if self.encoder is not None:
+            self.encoder.load()
+
+
+    def activate(
+        self,
+        device: str,
+        device_memory: int | None = None,
+    ):
+        self.decoder.activate(device=device, device_memory=device_memory)
+        if self.encoder is not None:
+            self.encoder.activate(device=device, device_memory=device_memory)
