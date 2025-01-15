@@ -16,11 +16,11 @@
 
 import torch
 
-from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine.base_engine import Engine
 from flux.trt.mixin import TransformerMixin
 
 
-class TransformerEngine(TransformerMixin, BaseEngine):
+class TransformerEngine(TransformerMixin, Engine):
     __dd_to_flux__ = {
         "hidden_states": "img",
         "img_ids": "img_ids",
