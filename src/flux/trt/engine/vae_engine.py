@@ -18,6 +18,7 @@ import torch
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
 from flux.trt.mixin import VAEDecoderMixin, VAEMixin
+from cuda import cudart
 
 
 class VAEDecoder(VAEDecoderMixin, Engine):
@@ -127,10 +128,23 @@ class VAEEngine(BaseEngine):
             self.encoder = self.encoder.cpu()
         return self
 
+    def get_device_memory(self):
+        if self.encoder:
+            device_memory = max(
+                self.decoder.engine.device_memory_size,
+                self.encoder.engine.device_memory_size,
+            )
+        else:
+            device_memory = self.decoder.engine.device_memory_size
+        return device_memory
+
     def to(self, device):
-        self.decoder = self.decoder.to(device)
-        if self.encoder is not None:
-            self.encoder = self.encoder.to(device)
+        self.load()
+
+        device_memory = self.get_device_memory()
+        _, self.decoder.shared_device_memory = cudart.cudaMalloc(device_memory)
+
+        self.activate(device=device, device_memory=self.decoder.shared_device_memory)
         return self
 
     def set_stream(self, stream):
