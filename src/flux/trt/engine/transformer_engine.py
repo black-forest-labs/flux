@@ -16,7 +16,7 @@
 
 import torch
 
-from flux.trt.engine.base_engine import Engine
+from flux.trt.engine import Engine
 from flux.trt.mixin import TransformerMixin
 
 

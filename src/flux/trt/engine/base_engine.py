@@ -23,6 +23,7 @@ import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
+from typing import Self
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -53,11 +54,27 @@ class BaseEngine(ABC):
         }
 
     @abstractmethod
-    def cpu(self):
+    def cpu(self) -> Self:
         pass
 
     @abstractmethod
-    def to(self, device: str):
+    def to(self, device: str) -> Self:
+        pass
+
+    @abstractmethod
+    def set_stream(self, stream):
+        pass
+
+    @abstractmethod
+    def load(self):
+        pass
+
+    @abstractmethod
+    def activate(
+        self,
+        device: str,
+        device_memory: int | None = None,
+    ):
         pass
 
 
@@ -85,7 +102,7 @@ class Engine(BaseEngine):
     ) -> dict[str, tuple]:
         pass
 
-    def cpu(self):
+    def cpu(self) -> Self:
         self.deallocate_buffers()
         self.deactivate()
         self.unload()
@@ -94,10 +111,13 @@ class Engine(BaseEngine):
             self.shared_device_memory = None
         return self
 
-    def to(self, device: str):
+    def to(self, device: str) -> Self:
         self.load()
         self.activate(device=device)
         return self
+
+    def set_stream(self, stream):
+        self.stream = stream
 
     def load(self):
         if self.engine is not None:
