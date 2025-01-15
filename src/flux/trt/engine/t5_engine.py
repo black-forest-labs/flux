@@ -16,12 +16,12 @@
 
 import torch
 
-from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine.base_engine import Engine
 from flux.trt.mixin import T5Mixin
 from transformers import T5Tokenizer
 
 
-class T5Engine(T5Mixin, BaseEngine):
+class T5Engine(T5Mixin, Engine):
     def __init__(
         self,
         text_maxlen: int,
