@@ -16,12 +16,12 @@
 
 import torch
 
-from flux.trt.engine import BaseEngine
+from flux.trt.engine import Engine
 from flux.trt.mixin import CLIPMixin
 from transformers import CLIPTokenizer
 
 
-class CLIPEngine(CLIPMixin, BaseEngine):
+class CLIPEngine(CLIPMixin, Engine):
     def __init__(
         self,
         text_maxlen: int,
