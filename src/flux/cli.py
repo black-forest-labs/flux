@@ -199,7 +199,7 @@ def main(
         trt_ctx_manager.init_runtime()
         # TODO: refactor. stream should be part of engine constructor maybe !!
         for _, engine in engines.items():
-            engine.stream = trt_ctx_manager.stream
+            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -209,7 +209,7 @@ def main(
             _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
 
             for _, engine in engines.items():
-                engine.activate(device=torch_device, shared_device_memory=shared_device_memory)
+                engine.activate(device=torch_device, device_memory=shared_device_memory)
 
         ae = engines["vae"]
         model = engines["transformer"]
