@@ -52,6 +52,16 @@ class BaseEngine(ABC):
             trt.DataType.BF16: torch.bfloat16,
         }
 
+    @abstractmethod
+    def cpu(self):
+        pass
+
+    @abstractmethod
+    def to(self, device: str):
+        pass
+
+
+class Engine(BaseEngine):
     def __init__(
         self,
         engine_path: str,
