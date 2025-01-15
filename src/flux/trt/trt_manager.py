@@ -23,8 +23,15 @@ import tensorrt as trt
 import torch
 from cuda import cudart
 
-from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEDecoder, VAEEngine
-from flux.trt.exporter import BaseExporter, CLIPExporter, T5Exporter, TransformerExporter, VAEDecoderExporter
+from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEDecoder, VAEEncoder, VAEEngine
+from flux.trt.exporter import (
+    BaseExporter,
+    CLIPExporter,
+    T5Exporter,
+    TransformerExporter,
+    VAEDecoderExporter,
+    VAEEncoderExporter,
+)
 from flux.trt.mixin import BaseMixin
 
 TRT_LOGGER = trt.Logger()
@@ -38,6 +45,7 @@ class TRTManager:
             "transformer": TransformerEngine,
             "t5": T5Engine,
             "vae_decoder": VAEDecoder,
+            "vae_encoder": VAEEncoder,
         }
 
     @property
@@ -47,12 +55,13 @@ class TRTManager:
             "transformer": TransformerExporter,
             "t5": T5Exporter,
             "vae_decoder": VAEDecoderExporter,
+            "vae_encoder": VAEEncoderExporter,
         }
 
     def __init__(
         self,
         device: str | torch.device,
-        max_batch=8,
+        max_batch=1,
         fp16=False,
         bf16=False,
         tf32=True,
@@ -192,7 +201,7 @@ class TRTManager:
                 )
                 exporters[model_name] = exporter
 
-            elif model_name == "vae_decoder":
+            elif model_name.startswith("vae"):
                 # Accuracy issues with FP16 and BF16
                 # fallback to FP32
                 exporter = exporter_class(
@@ -318,7 +327,6 @@ class TRTManager:
         enable_all_tactics=False,
         timing_cache=None,
     ) -> dict[str, BaseEngine]:
-
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -371,14 +379,21 @@ class TRTManager:
             )
             engines[model_name] = engine
 
-        engines["vae"] = VAEEngine(decoder=engines.pop("vae_decoder"))
+        engines["vae"] = VAEEngine(
+            decoder=engines.pop("vae_decoder"),
+            encoder=engines.pop("vae_encoder", None),
+        )
         return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
         max_device_memory = 0
         for model_name, engine in engines.items():
-            max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
+            if model_name == "vae":
+                # TODO: refactor VAEengine by adding a engine.device_memory_size that return the device memory for decoder + encoder
+                max_device_memory = max(max_device_memory, engine.get_device_memory())
+            else:
+                max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
         return max_device_memory
 
     def init_runtime(self):
