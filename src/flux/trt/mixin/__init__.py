@@ -18,12 +18,13 @@ from flux.trt.mixin.base_mixin import BaseMixin
 from flux.trt.mixin.clip_mixin import CLIPMixin
 from flux.trt.mixin.t5_mixin import T5Mixin
 from flux.trt.mixin.transformer_mixin import TransformerMixin
-from flux.trt.mixin.vae_mixin import VAEMixin
+from flux.trt.mixin.vae_mixin import VAEDecoderMixin, VAEMixin
 
 __all__ = [
     "BaseMixin",
-    "VAEMixin",
     "CLIPMixin",
-    "TransformerMixin",
     "T5Mixin",
+    "TransformerMixin",
+    "VAEDecoderMixin",
+    "VAEMixin",
 ]

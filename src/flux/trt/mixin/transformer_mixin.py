@@ -54,7 +54,7 @@ class TransformerMixin(BaseMixin):
             "text_maxlen": self.text_maxlen,
         }
 
-    def get_latent_dims(
+    def get_latent_dim(
         self,
         image_height: int,
         image_width: int,

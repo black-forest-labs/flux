@@ -17,11 +17,11 @@
 import torch
 from transformers import T5Tokenizer
 
-from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine import Engine
 from flux.trt.mixin import T5Mixin
 
 
-class T5Engine(T5Mixin, BaseEngine):
+class T5Engine(T5Mixin, Engine):
     def __init__(
         self,
         text_maxlen: int,
@@ -42,6 +42,9 @@ class T5Engine(T5Mixin, BaseEngine):
         self,
         prompt: list[str],
     ) -> torch.Tensor:
+        shape_dict = self.get_shape_dict(batch_size=len(prompt))
+        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
+
         with torch.inference_mode():
             feed_dict = self.tokenizer(
                 prompt,
@@ -61,8 +64,6 @@ class T5Engine(T5Mixin, BaseEngine):
     def get_shape_dict(
         self,
         batch_size: int,
-        image_height: int,
-        image_width: int,
     ) -> dict[str, tuple]:
         return {
             "input_ids": (batch_size, self.text_maxlen),

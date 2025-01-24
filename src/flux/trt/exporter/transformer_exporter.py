@@ -50,8 +50,8 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             verbose=verbose,
         )
 
-        self.min_image_shape = 256  # min image resolution: 256x256
-        self.max_image_shape = 1360  # max image resolution: 1360x1360
+        self.min_image_shape = 768
+        self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
         self.build_strongly_typed = build_strongly_typed
@@ -90,11 +90,38 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         # dynamic_axes["latent"] = {0: "B", 1: "latent_dim"}
         return dynamic_axes
 
-    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int] | None:
+    def get_minmax_dims(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: bool,
+        static_shape: bool,
+    ):
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
+
+        latent_height = image_height // self.compression_factor
+        latent_width = image_width // self.compression_factor
+        min_latent_height = latent_height if static_shape else self.min_latent_shape
+        max_latent_height = latent_height if static_shape else self.max_latent_shape
+        min_latent_width = latent_width if static_shape else self.min_latent_shape
+        max_latent_width = latent_width if static_shape else self.max_latent_shape
+
+        return (
+            min_batch,
+            max_batch,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        )
+
+    def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height, latent_width = self.get_latent_dims(
+        latent_height, latent_width = self.get_latent_dim(
             image_height=image_height,
             image_width=image_width,
         )
@@ -109,20 +136,34 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         image_height: int,
         image_width: int,
         static_batch: bool,
+        static_shape: bool,
     ) -> dict[str, list[tuple]]:
-        min_batch = batch_size if static_batch else self.min_batch
-        max_batch = batch_size if static_batch else self.max_batch
-
         latent_height, latent_width = self.check_dims(
             batch_size=batch_size,
             image_height=image_height,
             image_width=image_width,
         )
+
+        (
+            min_batch,
+            max_batch,
+            min_latent_height,
+            max_latent_height,
+            min_latent_width,
+            max_latent_width,
+        ) = self.get_minmax_dims(
+            batch_size=batch_size,
+            image_height=image_height,
+            image_width=image_width,
+            static_batch=static_batch,
+            static_shape=static_shape,
+        )
+
         input_profile = {
             "hidden_states": [
-                (min_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (min_batch, (min_latent_height // 2) * (min_latent_width // 2), self.in_channels),
                 (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
-                (max_batch, (latent_height // 2) * (latent_width // 2), self.in_channels),
+                (max_batch, (max_latent_height // 2) * (max_latent_width // 2), self.in_channels),
             ],
             "encoder_hidden_states": [
                 (min_batch, self.text_maxlen, self.context_in_dim),
@@ -135,9 +176,9 @@ class TransformerExporter(TransformerMixin, BaseExporter):
                 (max_batch, self.vec_in_dim),
             ],
             "img_ids": [
+                ((min_latent_height // 2) * (min_latent_width // 2), 3),
                 ((latent_height // 2) * (latent_width // 2), 3),
-                ((latent_height // 2) * (latent_width // 2), 3),
-                ((latent_height // 2) * (latent_width // 2), 3),
+                ((max_latent_height // 2) * (max_latent_width // 2), 3),
             ],
             "txt_ids": [
                 (self.text_maxlen, 3),

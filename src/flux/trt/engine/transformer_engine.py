@@ -16,11 +16,11 @@
 
 import torch
 
-from flux.trt.engine.base_engine import BaseEngine
+from flux.trt.engine import Engine
 from flux.trt.mixin import TransformerMixin
 
 
-class TransformerEngine(TransformerMixin, BaseEngine):
+class TransformerEngine(TransformerMixin, Engine):
     __dd_to_flux__ = {
         "hidden_states": "img",
         "img_ids": "img_ids",
@@ -77,6 +77,13 @@ class TransformerEngine(TransformerMixin, BaseEngine):
         self,
         **kwargs,
     ) -> torch.Tensor:
+        img = kwargs["img"]
+        shape_dict = self.get_shape_dict(
+            batch_size=img.size(0),
+            hidden_size=img.size(1),
+        )
+        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
+
         with torch.inference_mode():
             feed_dict = {
                 tensor_name: kwargs[self.dd_to_flux[tensor_name]].to(dtype=tensor_value.dtype)
@@ -95,22 +102,16 @@ class TransformerEngine(TransformerMixin, BaseEngine):
     def get_shape_dict(
         self,
         batch_size: int,
-        image_height: int,
-        image_width: int,
+        hidden_size: int,
     ) -> dict[str, tuple]:
-        latent_height, latent_width = self.get_latent_dims(
-            image_height=image_height,
-            image_width=image_width,
-        )
-
         shape_dict = {
-            "hidden_states": (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),
+            "hidden_states": (batch_size, hidden_size, self.in_channels),
             "encoder_hidden_states": (batch_size, self.text_maxlen, self.context_in_dim),
             "pooled_projections": (batch_size, self.vec_in_dim),
             "timestep": (batch_size,),
-            "img_ids": ((latent_height // 2) * (latent_width // 2), 3),
+            "img_ids": (hidden_size, 3),
             "txt_ids": (self.text_maxlen, 3),
-            "latent": (batch_size, (latent_height // 2) * (latent_width // 2), self.out_channels),
+            "latent": (batch_size, hidden_size, self.out_channels),
         }
 
         if self.guidance_embed:

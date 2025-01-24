@@ -27,7 +27,9 @@ class SamplingOptions:
 
 
 def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
-    user_question = "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    user_question = (
+        "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    )
     usage = (
         "Usage: Either write your prompt directly, leave this field empty "
         "to repeat the prompt or write a command starting with a slash:\n"
@@ -176,14 +178,16 @@ def main(
         trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,
+            static_batch=kwargs.get("static_batch", True),
+            static_shape=kwargs.get("static_shape", True),
         )
-
+        ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
                 "clip": clip,
                 "transformer": model,
                 "t5": t5,
-                "vae": ae,
+                "vae_decoder": ae.decoder,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
@@ -194,22 +198,19 @@ def main(
         torch.cuda.synchronize()
 
         trt_ctx_manager.init_runtime()
-        stream = cudart.cudaStreamCreate()[1]
+        # TODO: refactor. stream should be part of engine constructor maybe !!
+        for _, engine in engines.items():
+            engine.set_stream(stream=trt_ctx_manager.stream)
 
-        for engine in engines.values():
-            engine.load(stream)
+        if not offload:
+            for _, engine in engines.items():
+                engine.load()
 
-        calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
-        _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
+            calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+            _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
 
-        for engine_name, engine in engines.items():
-            engine.activate(shared_device_memory)
-            shape_dict = engine.get_shape_dict(
-                batch_size=1,
-                image_height=height,
-                image_width=width,
-            )
-            engine.allocate_buffers(shape_dict, device=torch_device)
+            for _, engine in engines.items():
+                engine.activate(device=torch_device, device_memory=shared_device_memory)
 
         ae = engines["vae"]
         model = engines["transformer"]
@@ -250,7 +251,9 @@ def main(
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
         inp = prepare(t5, clip, x, prompt=opts.prompt)
-        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
+        timesteps = get_schedule(
+            opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell")
+        )
 
         # offload TEs to CPU, load model to gpu
         if offload:
@@ -287,6 +290,8 @@ def main(
         else:
             opts = None
 
+    if trt:
+        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)

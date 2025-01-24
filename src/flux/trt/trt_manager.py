@@ -21,28 +21,31 @@ from typing import Any, Union
 
 import tensorrt as trt
 import torch
+from cuda import cudart
 
-from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEEngine
-from flux.trt.exporter import BaseExporter, CLIPExporter, T5Exporter, TransformerExporter, VAEExporter
+from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEDecoder, VAEEncoder, VAEEngine
+from flux.trt.exporter import (
+    BaseExporter,
+    CLIPExporter,
+    T5Exporter,
+    TransformerExporter,
+    VAEDecoderExporter,
+    VAEEncoderExporter,
+)
 from flux.trt.mixin import BaseMixin
 
 TRT_LOGGER = trt.Logger()
 
 
 class TRTManager:
-    __stages__ = ["clip", "t5", "transformer", "vae"]
-
-    @property
-    def stages(self) -> list[str]:
-        return self.__stages__
-
     @property
     def model_to_engine_class(self) -> dict[str, type[Union[BaseMixin, BaseEngine]]]:
         return {
             "clip": CLIPEngine,
             "transformer": TransformerEngine,
             "t5": T5Engine,
-            "vae": VAEEngine,
+            "vae_decoder": VAEDecoder,
+            "vae_encoder": VAEEncoder,
         }
 
     @property
@@ -51,17 +54,19 @@ class TRTManager:
             "clip": CLIPExporter,
             "transformer": TransformerExporter,
             "t5": T5Exporter,
-            "vae": VAEExporter,
+            "vae_decoder": VAEDecoderExporter,
+            "vae_encoder": VAEEncoderExporter,
         }
 
     def __init__(
         self,
         device: str | torch.device,
-        max_batch=8,
+        max_batch=1,
         fp16=False,
         bf16=False,
         tf32=True,
         static_batch=True,
+        static_shape=True,
         verbose=True,
         **kwargs,
     ):
@@ -71,6 +76,7 @@ class TRTManager:
         self.bf16 = bf16
         self.tf32 = tf32
         self.static_batch = static_batch
+        self.static_shape = static_shape
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
@@ -195,7 +201,7 @@ class TRTManager:
                 )
                 exporters[model_name] = exporter
 
-            elif model_name == "vae":
+            elif model_name.startswith("vae"):
                 # Accuracy issues with FP16 and BF16
                 # fallback to FP32
                 exporter = exporter_class(
@@ -259,6 +265,7 @@ class TRTManager:
         opt_image_height: int,
         opt_image_width: int,
         static_batch: bool,
+        static_shape: bool,
         optimization_level: int,
         enable_all_tactics: bool,
         timing_cache,
@@ -278,8 +285,10 @@ class TRTManager:
         bf16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.bf16
         strongly_typed = True if getattr(model_exporter, "build_strongly_typed", False) else False
 
-        extra_build_args = {"verbose": verbose}
-        extra_build_args["builder_optimization_level"] = optimization_level
+        extra_build_args = {
+            "verbose": verbose,
+            "builder_optimization_level": optimization_level,
+        }
 
         model_exporter.build(
             engine_path=model_config["engine_path"],
@@ -293,6 +302,7 @@ class TRTManager:
                 image_height=opt_image_height,
                 image_width=opt_image_width,
                 static_batch=static_batch,
+                static_shape=static_shape,
             ),
             enable_all_tactics=enable_all_tactics,
             timing_cache=timing_cache,
@@ -316,7 +326,7 @@ class TRTManager:
         optimization_level=3,
         enable_all_tactics=False,
         timing_cache=None,
-    ):
+    ) -> dict[str, BaseEngine]:
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -350,6 +360,7 @@ class TRTManager:
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
                 static_batch=self.static_batch,
+                static_shape=self.static_shape,
                 optimization_level=optimization_level,
                 enable_all_tactics=enable_all_tactics,
                 timing_cache=timing_cache,
@@ -368,20 +379,31 @@ class TRTManager:
             )
             engines[model_name] = engine
 
+        engines["vae"] = VAEEngine(
+            decoder=engines.pop("vae_decoder"),
+            encoder=engines.pop("vae_encoder", None),
+        )
         return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
         max_device_memory = 0
         for model_name, engine in engines.items():
-            max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
+            if model_name == "vae":
+                # TODO: refactor VAEengine by adding a engine.device_memory_size that return the device memory for decoder + encoder
+                max_device_memory = max(max_device_memory, engine.get_device_memory())
+            else:
+                max_device_memory = max(max_device_memory, engine.engine.device_memory_size)
         return max_device_memory
 
     def init_runtime(self):
         self.runtime = trt.Runtime(TRT_LOGGER)
         enter_fn = type(self.runtime).__enter__
         enter_fn(self.runtime)
+        self.stream = cudart.cudaStreamCreate()[1]
 
     def stop_runtime(self):
         exit_fn = type(self.runtime).__exit__
         exit_fn(self.runtime, *sys.exc_info())
+        cudart.cudaStreamDestroy(self.stream)
+        del self.stream
