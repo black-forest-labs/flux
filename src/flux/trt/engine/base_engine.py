@@ -208,6 +208,6 @@ class Engine(BaseEngine):
 
         noerror = self.context.execute_async_v3(self.stream)
         if not noerror:
-            raise ValueError(f"ERROR: inference failed.")
+            raise ValueError("ERROR: inference failed.")
 
         return self.tensors

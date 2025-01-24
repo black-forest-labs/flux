@@ -15,12 +15,13 @@
 # limitations under the License.
 
 import torch
+
+from flux.modules.conditioner import HFEmbedder
 from flux.trt.exporter.base_exporter import (
     BaseExporter,
     Optimizer,
     TransformersModelWrapper,
 )
-from flux.modules.conditioner import HFEmbedder
 from flux.trt.mixin import CLIPMixin
 
 

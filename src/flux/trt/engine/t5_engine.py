@@ -15,10 +15,10 @@
 # limitations under the License.
 
 import torch
+from transformers import T5Tokenizer
 
 from flux.trt.engine import Engine
 from flux.trt.mixin import T5Mixin
-from transformers import T5Tokenizer
 
 
 class T5Engine(T5Mixin, Engine):
