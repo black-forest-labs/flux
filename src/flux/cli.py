@@ -178,7 +178,8 @@ def main(
         trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,
-            static_shape=False,
+            static_batch=kwargs.get("static_batch", True),
+            static_shape=kwargs.get("static_shape", True),
         )
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
