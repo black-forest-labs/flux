@@ -84,7 +84,7 @@ class TransformerEngine(TransformerMixin, BaseEngine):
                 if tensor_name != "latent"
             }
 
-            #remove batch dim to match demo-diffusion
+            # remove batch dim to match demo-diffusion
             feed_dict["img_ids"] = feed_dict["img_ids"][0]
             feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
 
@@ -101,7 +101,7 @@ class TransformerEngine(TransformerMixin, BaseEngine):
         latent_height, latent_width = self.get_latent_dims(
             image_height=image_height,
             image_width=image_width,
-        )
+        )add-trt-support-controlnet
 
         shape_dict = {
             "hidden_states": (batch_size, (latent_height // 2) * (latent_width // 2), self.in_channels),

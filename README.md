@@ -17,9 +17,22 @@ source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
+## Local installation with TRT support
+
+```bash
+docker pull nvcr.io/nvidia/pytorch:24.10-py3
+cd $HOME && git clone https://github.com/black-forest-labs/flux
+cd $HOME/flux
+docker run --rm -it --gpus all -v $PWD:/workspace/flux nvcr.io/nvidia/pytorch:24.10-py3 /bin/bash
+# inside container
+cd /workspace/flux
+pip install -e ".[all]"
+pip install -r trt_requirements.txt
+```
+
 ### Models
 
-We are offering an extensive suite of models. For more information about the individual models, please refer to the link under **Usage**.
+We are offering an extensive suite of models. For more information about the invidual models, please refer to the link under **Usage**.
 
 | Name                        | Usage                                                      | HuggingFace repo                                               | License                                                               |
 | --------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
