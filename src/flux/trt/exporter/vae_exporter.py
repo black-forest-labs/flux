@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
 from math import ceil
 from flux.modules.autoencoder import Decoder, Encoder
 from flux.trt.exporter.base_exporter import BaseExporter
@@ -36,7 +37,7 @@ class VAEDecoderExporter(VAEDecoderMixin, BaseExporter):
             compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            model=model.decoder,  # we need to trace only the decoder
+            model=model,  # we need to trace only the decoder
             fp16=fp16,
             tf32=tf32,
             bf16=bf16,
