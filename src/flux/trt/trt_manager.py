@@ -44,7 +44,7 @@ class TRTManager:
             "clip": CLIPEngine,
             "transformer": TransformerEngine,
             "t5": T5Engine,
-            "vae_decoder": VAEDecoder,
+            "vae": VAEDecoder,
             "vae_encoder": VAEEncoder,
         }
 
@@ -54,7 +54,7 @@ class TRTManager:
             "clip": CLIPExporter,
             "transformer": TransformerExporter,
             "t5": T5Exporter,
-            "vae_decoder": VAEDecoderExporter,
+            "vae": VAEDecoderExporter,
             "vae_encoder": VAEEncoderExporter,
         }
 
@@ -380,7 +380,7 @@ class TRTManager:
             engines[model_name] = engine
 
         engines["vae"] = VAEEngine(
-            decoder=engines.pop("vae_decoder"),
+            decoder=engines.pop("vae"),
             encoder=engines.pop("vae_encoder", None),
         )
         return engines

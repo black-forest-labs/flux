@@ -187,7 +187,7 @@ def main(
                 "clip": clip,
                 "transformer": model,
                 "t5": t5,
-                "vae_decoder": ae.decoder,
+                "vae": ae.decoder,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
