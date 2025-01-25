@@ -273,7 +273,7 @@ def main(
                 "clip": clip,
                 "transformer": model,
                 "t5": t5,
-                "vae_decoder": ae.decoder,
+                "vae": ae.decoder,
                 "vae_encoder": ae.encoder,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),

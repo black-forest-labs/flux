@@ -23,7 +23,7 @@ import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
-from typing import Self
+from typing import Any
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -54,11 +54,11 @@ class BaseEngine(ABC):
         }
 
     @abstractmethod
-    def cpu(self) -> Self:
+    def cpu(self) -> "BaseEngine":
         pass
 
     @abstractmethod
-    def to(self, device: str) -> Self:
+    def to(self, device: str) -> "BaseEngine":
         pass
 
     @abstractmethod
@@ -72,7 +72,7 @@ class BaseEngine(ABC):
     @abstractmethod
     def activate(
         self,
-        device: str,
+        device: str | torch.device,
         device_memory: int | None = None,
     ):
         pass
@@ -102,7 +102,7 @@ class Engine(BaseEngine):
     ) -> dict[str, tuple]:
         pass
 
-    def cpu(self) -> Self:
+    def cpu(self) -> "Engine":
         self.deallocate_buffers()
         self.deactivate()
         self.unload()
@@ -111,7 +111,7 @@ class Engine(BaseEngine):
             self.shared_device_memory = None
         return self
 
-    def to(self, device: str) -> Self:
+    def to(self, device: str) -> "Engine":
         self.load()
         self.activate(device=device)
         return self
