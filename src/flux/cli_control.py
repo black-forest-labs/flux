@@ -273,7 +273,6 @@ def main(
             opt_image_height=height,
             opt_image_width=width,
         )
-
         torch.cuda.synchronize()
 
         trt_ctx_manager.init_runtime()
