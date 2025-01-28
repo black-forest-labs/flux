@@ -13,10 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import gc
 import os
 import sys
+import warnings
 from typing import Any, Union
 
 import tensorrt as trt
@@ -227,6 +227,8 @@ class TRTManager:
 
         if "transformer" in exporters and "t5" in exporters:
             exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
+        else:
+            warnings.warn("`text_maxlen` attribute of flux-trasformer is not update. Default value is used.")
 
         return exporters
 
