@@ -252,14 +252,6 @@ def main(
         raise NotImplementedError()
 
     if trt:
-        # offload to CPU to save memory
-        ae = ae.cpu()
-        model = model.cpu()
-        clip = clip.cpu()
-        t5 = t5.cpu()
-
-        torch.cuda.empty_cache()
-
         trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,
@@ -270,18 +262,17 @@ def main(
         ae.encoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
-                "clip": clip,
-                "transformer": model,
-                "t5": t5,
-                "vae": ae.decoder,
-                "vae_encoder": ae.encoder,
+                "clip": clip.cpu(),
+                "transformer": model.cpu(),
+                "t5": t5.cpu(),
+                "vae": ae.decoder.cpu(),
+                "vae_encoder": ae.encoder.cpu(),
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             opt_image_height=height,
             opt_image_width=width,
         )
-
         torch.cuda.synchronize()
 
         trt_ctx_manager.init_runtime()

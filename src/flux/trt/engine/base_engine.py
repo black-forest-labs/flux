@@ -23,7 +23,6 @@ import torch
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
-from typing import Any
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 

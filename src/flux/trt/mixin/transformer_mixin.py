@@ -29,7 +29,7 @@ class TransformerMixin(BaseMixin):
         in_channels: int,
         out_channels: int,
         compression_factor: int,
-        text_maxlen=256,
+        text_maxlen=512,
         *args,
         **kwargs,
     ) -> None:
