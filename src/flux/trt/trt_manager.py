@@ -379,10 +379,11 @@ class TRTManager:
             )
             engines[model_name] = engine
 
-        engines["vae"] = VAEEngine(
-            decoder=engines.pop("vae"),
-            encoder=engines.pop("vae_encoder", None),
-        )
+        if "vae" in engines:
+            engines["vae"] = VAEEngine(
+                decoder=engines.pop("vae"),
+                encoder=engines.pop("vae_encoder", None),
+            )
         return engines
 
     @staticmethod
