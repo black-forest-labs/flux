@@ -17,11 +17,11 @@
 import torch
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
-from flux.trt.mixin import VAEDecoderMixin, VAEMixin
+from flux.trt.mixin import VAEMixin
 from cuda import cudart
 
 
-class VAEDecoder(VAEDecoderMixin, Engine):
+class VAEDecoder(VAEMixin, Engine):
     def __init__(
         self,
         z_channels: int,
@@ -71,11 +71,15 @@ class VAEEncoder(VAEMixin, Engine):
         self,
         z_channels: int,
         compression_factor: int,
+        scale_factor: float,
+        shift_factor: float,
         engine_path: str,
     ):
         super().__init__(
             z_channels=z_channels,
             compression_factor=compression_factor,
+            scale_factor=scale_factor,
+            shift_factor=shift_factor,
             engine_path=engine_path,
         )
 
@@ -92,6 +96,7 @@ class VAEEncoder(VAEMixin, Engine):
 
         feed_dict = {"images": x}
         latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+        latent = self.scale_factor * (latent - self.shift_factor)
         return latent
 
     def get_shape_dict(self, batch_size: int, image_height: int, image_width: int) -> dict[str, tuple]:

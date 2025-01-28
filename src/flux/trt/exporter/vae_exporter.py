@@ -18,10 +18,10 @@ import torch
 from math import ceil
 from flux.modules.autoencoder import Decoder, Encoder
 from flux.trt.exporter.base_exporter import BaseExporter
-from flux.trt.mixin import VAEDecoderMixin, VAEMixin
+from flux.trt.mixin import VAEMixin
 
 
-class VAEDecoderExporter(VAEDecoderMixin, BaseExporter):
+class VAEDecoderExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: Decoder,
@@ -186,6 +186,8 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
         super().__init__(
             z_channels=model.params.z_channels,
             compression_factor=compression_factor,
+            scale_factor=model.params.scale_factor,
+            shift_factor=model.params.shift_factor,
             model=model,
             fp16=fp16,
             tf32=tf32,
