@@ -387,7 +387,8 @@ def load_flow_model(
 def load_t5(device: str | torch.device = get_device_initial(), max_length: int = 512) -> HFEmbedder:
     dtype = get_dtype(str(device))
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
-    model_init = HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=dtype)
+    model_name = "google/t5-v1_1-xxl"
+    model_init = HFEmbedder(model_name, max_length=max_length, torch_dtype=dtype)
     if str(device) == "hpu":
         """ Load the model to HPU """
         model = load_model_to_hpu(model_init)
@@ -397,7 +398,8 @@ def load_t5(device: str | torch.device = get_device_initial(), max_length: int =
 
 def load_clip(device: str | torch.device = get_device_initial()) -> HFEmbedder:
     dtype = get_dtype(str(device))
-    model_init = HFEmbedder("openai/clip-vit-base-patch16", max_length=77, torch_dtype=dtype)
+    model_name = "openai/clip-vit-base-patch16"
+    model_init = HFEmbedder(model_name, max_length=77, torch_dtype=dtype)
     if str(device) == "hpu":
         """ Load the model to HPU """
         model = load_model_to_hpu(model_init)
