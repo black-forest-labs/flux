@@ -23,7 +23,15 @@ import tensorrt as trt
 import torch
 from cuda import cudart
 
-from flux.trt.engine import BaseEngine, CLIPEngine, T5Engine, TransformerEngine, VAEDecoder, VAEEncoder, VAEEngine
+from flux.trt.engine import (
+    BaseEngine,
+    CLIPEngine,
+    T5Engine,
+    TransformerEngine,
+    VAEDecoder,
+    VAEEncoder,
+    VAEEngine,
+)
 from flux.trt.exporter import (
     BaseExporter,
     CLIPExporter,
@@ -95,11 +103,14 @@ class TRTManager:
         onnx_dir: str,
         opt: bool = True,
         suffix: str = "",
+        transformer_precision: str = "bf16",
     ) -> str:
         onnx_model_dir = os.path.join(
             onnx_dir,
             model_name + suffix + (".opt" if opt else ""),
         )
+        if model_name == "transformer":
+            onnx_model_dir = os.path.join(onnx_model_dir, transformer_precision)
         os.makedirs(onnx_model_dir, exist_ok=True)
         return os.path.join(onnx_model_dir, "model.onnx")
 
@@ -108,10 +119,16 @@ class TRTManager:
         model_name: str,
         engine_dir: str,
         suffix: str = "",
+        transformer_precision: str = "bf16",
     ) -> str:
         return os.path.join(
             engine_dir,
-            model_name + suffix + ".trt" + trt.__version__ + ".plan",
+            model_name
+            + suffix
+            + (f"_{transformer_precision}" if model_name == "transformer" else "")
+            + ".trt"
+            + trt.__version__
+            + ".plan",
         )
 
     @staticmethod
@@ -134,20 +151,11 @@ class TRTManager:
         return os.path.join(onnx_model_dir, "refit" + suffix + ".json")
 
     @staticmethod
-    def _get_state_dict_path(
-        model_name: str,
-        onnx_dir: str,
-        suffix: str = "",
-    ) -> str:
-        onnx_model_dir = os.path.join(onnx_dir, model_name + suffix)
-        os.makedirs(onnx_model_dir, exist_ok=True)
-        return os.path.join(onnx_model_dir, "state_dict.pt")
-
-    @staticmethod
     def _prepare_model_configs(
         models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
+        transformer_precision: str,
     ) -> dict[str, dict[str, Any]]:
         model_names = models.keys()
         configs = {}
@@ -160,21 +168,19 @@ class TRTManager:
                 onnx_dir=onnx_dir,
                 opt=False,
                 suffix=config["model_suffix"],
+                transformer_precision=transformer_precision,
             )
             config["onnx_opt_path"] = TRTManager._get_onnx_path(
                 model_name=model_name,
                 onnx_dir=onnx_dir,
                 suffix=config["model_suffix"],
+                transformer_precision=transformer_precision,
             )
             config["engine_path"] = TRTManager._get_engine_path(
                 model_name=model_name,
                 engine_dir=engine_dir,
                 suffix=config["model_suffix"],
-            )
-            config["state_dict_path"] = TRTManager._get_state_dict_path(
-                model_name=model_name,
-                onnx_dir=onnx_dir,
-                suffix=config["model_suffix"],
+                transformer_precision=transformer_precision,
             )
 
             configs[model_name] = config
@@ -323,12 +329,15 @@ class TRTManager:
         onnx_dir: str,
         opt_image_height: int,
         opt_image_width: int,
+        transformer_precision: str,
         opt_batch_size=1,
         onnx_opset=19,
         optimization_level=3,
         enable_all_tactics=False,
         timing_cache=None,
     ) -> dict[str, BaseEngine]:
+        assert transformer_precision in ["bf16", "fp8", "fp4"], "Invalid transformer precision"
+
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -338,6 +347,7 @@ class TRTManager:
             models=models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
+            transformer_precision=transformer_precision,
         )
 
         exporters = self._get_exporters(models)

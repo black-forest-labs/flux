@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from math import ceil
+
+import torch
+
 from flux.modules.autoencoder import Decoder, Encoder
 from flux.trt.exporter.base_exporter import BaseExporter
 from flux.trt.mixin import VAEMixin

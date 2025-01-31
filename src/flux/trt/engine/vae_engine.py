@@ -15,10 +15,10 @@
 # limitations under the License.
 
 import torch
+from cuda import cudart
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
 from flux.trt.mixin import VAEMixin
-from cuda import cudart
 
 
 class VAEDecoder(VAEMixin, Engine):
@@ -161,7 +161,6 @@ class VAEEngine(BaseEngine):
         self.decoder.load()
         if self.encoder is not None:
             self.encoder.load()
-
 
     def activate(
         self,

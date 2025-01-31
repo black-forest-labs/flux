@@ -10,24 +10,22 @@ This repo contains minimal inference code to run image generation & editing with
 ```bash
 cd $HOME && git clone https://github.com/black-forest-labs/flux
 cd $HOME/flux
-
-# Using pyvenv
 python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
-## Local installation with TRT support
+### Local installation with TensorRT support
+
+If you would like to install the repository with [TensorRT](https://github.com/NVIDIA/TensorRT) support, you currently need to install a PyTorch image from NVIDIA instead. First install [enroot](https://github.com/NVIDIA/enroot), next follow the steps below:
 
 ```bash
-docker pull nvcr.io/nvidia/pytorch:24.10-py3
 cd $HOME && git clone https://github.com/black-forest-labs/flux
-cd $HOME/flux
-docker run --rm -it --gpus all -v $PWD:/workspace/flux nvcr.io/nvidia/pytorch:24.10-py3 /bin/bash
-# inside container
-cd /workspace/flux
-pip install -e ".[all]"
-pip install -r trt_requirements.txt
+enroot import 'docker://$oauthtoken@nvcr.io#nvidia/pytorch:25.01-py3'
+enroot create -n pti2501 nvidia+pytorch+25.01-py3.sqsh
+enroot start --rw -m ${PWD}/flux:/workspace/flux -r pti2501
+cd flux
+pip install -e ".[tensorrt]" --extra-index-url https://pypi.nvidia.com
 ```
 
 ### Models
@@ -54,57 +52,6 @@ We are offering an extensive suite of models. For more information about the inv
 | `FLUX1.1 Redux [pro] Ultra` | [Image variation](docs/image-variation.md)                 | [Available in our API.](https://docs.bfl.ml/)                  |                                                                       |
 
 The weights of the autoencoder are also released under [apache-2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) and can be found in the HuggingFace repos above.
-
-We also offer a Gradio-based demo for an interactive experience. To run the Gradio demo:
-
-```bash
-python demo_gr.py --name flux-schnell --device cuda
-```
-
-Options:
-
-- `--name`: Choose the model to use (options: "flux-schnell", "flux-dev")
-- `--device`: Specify the device to use (default: "cuda" if available, otherwise "cpu")
-- `--offload`: Offload model to CPU when not in use
-- `--share`: Create a public link to your demo
-
-To run the demo with the dev model and create a public link:
-
-```bash
-python demo_gr.py --name flux-dev --share
-```
-
-## Diffusers integration
-
-`FLUX.1 [schnell]` and `FLUX.1 [dev]` are integrated with the [🧨 diffusers](https://github.com/huggingface/diffusers) library. To use it with diffusers, install it:
-
-```shell
-pip install git+https://github.com/huggingface/diffusers.git
-```
-
-Then you can use `FluxPipeline` to run the model
-
-```python
-import torch
-from diffusers import FluxPipeline
-
-model_id = "black-forest-labs/FLUX.1-schnell" #you can also use `black-forest-labs/FLUX.1-dev`
-
-pipe = FluxPipeline.from_pretrained("black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16)
-pipe.enable_model_cpu_offload() #save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
-
-prompt = "A cat holding a sign that says hello world"
-seed = 42
-image = pipe(
-    prompt,
-    output_type="pil",
-    num_inference_steps=4, #use a larger number if you are using [dev]
-    generator=torch.Generator("cpu").manual_seed(seed)
-).images[0]
-image.save("flux-schnell.png")
-```
-
-To learn more check out the [diffusers](https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux) documentation
 
 ## API usage
 

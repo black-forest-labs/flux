@@ -27,9 +27,7 @@ class SamplingOptions:
 
 
 def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
-    user_question = (
-        "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
-    )
+    user_question = "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
     usage = (
         "Usage: Either write your prompt directly, leave this field empty "
         "to repeat the prompt or write a command starting with a slash:\n"
@@ -113,6 +111,7 @@ def main(
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
     trt: bool = False,
+    trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
 ):
     """
@@ -135,6 +134,19 @@ def main(
         trt: use TensorRT backend for optimized inference
         kwargs: additional arguments for TensorRT support
     """
+
+    prompt = prompt.split("|")
+    if len(prompt) == 1:
+        prompt = prompt[0]
+        additional_prompts = None
+    else:
+        additional_prompts = prompt[1:]
+        prompt = prompt[0]
+
+    assert not (
+        (additional_prompts is not None) and loop
+    ), "Do not provide additional prompts and set loop to True"
+
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
     if name not in configs:
@@ -193,6 +205,7 @@ def main(
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             opt_image_height=height,
             opt_image_width=width,
+            transformer_precision=trt_transformer_precision,
         )
 
         torch.cuda.synchronize()
@@ -251,9 +264,7 @@ def main(
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
         inp = prepare(t5, clip, x, prompt=opts.prompt)
-        timesteps = get_schedule(
-            opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell")
-        )
+        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # offload TEs to CPU, load model to gpu
         if offload:
@@ -287,11 +298,15 @@ def main(
         if loop:
             print("-" * 80)
             opts = parse_prompt(opts)
+        elif additional_prompts:
+            next_prompt = additional_prompts.pop(0)
+            opts.prompt = next_prompt
         else:
             opts = None
 
     if trt:
         trt_ctx_manager.stop_runtime()
+
 
 def app():
     Fire(main)

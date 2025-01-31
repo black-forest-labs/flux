@@ -177,6 +177,7 @@ def main(
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
     trt: bool = False,
+    trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
 ):
     """
@@ -272,6 +273,7 @@ def main(
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             opt_image_height=height,
             opt_image_width=width,
+            transformer_precision=trt_transformer_precision,
         )
         torch.cuda.synchronize()
 

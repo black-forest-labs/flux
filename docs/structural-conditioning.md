@@ -39,6 +39,15 @@ python -m src.flux.cli_control --loop --name <name>
 
 where `name` is one of `flux-dev-canny`, `flux-dev-depth`, `flux-dev-canny-lora`, or `flux-dev-depth-lora`.
 
+### TRT engine infernece
+
+You may also download ONNX export of [FLUX.1 Depth \[dev\]](https://huggingface.co/black-forest-labs/FLUX.1-Depth-dev-onnx) and [FLUX.1 Canny \[dev\]](https://huggingface.co/black-forest-labs/FLUX.1-Canny-dev-onnx). We provide exports in BF16, FP8, and FP4 precision. Note that you need to install the repository with TensorRT support as outlined [here](../README.md).
+
+```bash
+TRT_ENGINE_DIR=<your_trt_engine_will_be_saved_here> ONNX_DIR=<path_of_downloaded_onnx_export> python src/flux/cli.py "<prompt>"  --img_cond_path="assets/robot.webp" --trt --static_shape=False --name=<name> --trt_transformer_precision <precision>
+```
+where `<precision>` is either bf16, fp8, or fp4. For fp4, you need a NVIDIA GPU based on the [Blackwell Architecture](https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/).
+
 ## Diffusers usage
 
 Flux Control (including the LoRAs) is also compatible with the `diffusers` Python library. Check out the [documentation](https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux) to learn more.
