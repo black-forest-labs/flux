@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from typing import Any
+
 from flux.trt.mixin.base_mixin import BaseMixin
 
 
