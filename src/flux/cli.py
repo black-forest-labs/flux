@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
+from cuda import cudart
 from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from flux.trt.trt_manager import TRTManager
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
@@ -25,7 +27,9 @@ class SamplingOptions:
 
 
 def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
-    user_question = "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    user_question = (
+        "Next prompt (write /h for help, /q to quit and leave empty to repeat):\n"
+    )
     usage = (
         "Usage: Either write your prompt directly, leave this field empty "
         "to repeat the prompt or write a command starting with a slash:\n"
@@ -108,6 +112,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
+    trt: bool = False,
+    **kwargs: dict | None,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -126,6 +132,8 @@ def main(
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
+        trt: use TensorRT backend for optimized inference
+        kwargs: additional arguments for TensorRT support
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -157,6 +165,57 @@ def main(
     clip = load_clip(torch_device)
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
+
+    if trt:
+        # offload to CPU to save memory
+        ae = ae.cpu()
+        model = model.cpu()
+        clip = clip.cpu()
+        t5 = t5.cpu()
+
+        torch.cuda.empty_cache()
+
+        trt_ctx_manager = TRTManager(
+            bf16=True,
+            device=torch_device,
+            static_batch=kwargs.get("static_batch", True),
+            static_shape=kwargs.get("static_shape", True),
+        )
+        ae.decoder.params = ae.params
+        engines = trt_ctx_manager.load_engines(
+            models={
+                "clip": clip,
+                "transformer": model,
+                "t5": t5,
+                "vae": ae.decoder,
+            },
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            opt_image_height=height,
+            opt_image_width=width,
+        )
+
+        torch.cuda.synchronize()
+
+        trt_ctx_manager.init_runtime()
+        # TODO: refactor. stream should be part of engine constructor maybe !!
+        for _, engine in engines.items():
+            engine.set_stream(stream=trt_ctx_manager.stream)
+
+        if not offload:
+            for _, engine in engines.items():
+                engine.load()
+
+            calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
+            _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
+
+            for _, engine in engines.items():
+                engine.activate(device=torch_device, device_memory=shared_device_memory)
+
+        ae = engines["vae"]
+        model = engines["transformer"]
+        clip = engines["clip"]
+        t5 = engines["t5"]
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
@@ -192,7 +251,9 @@ def main(
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
         inp = prepare(t5, clip, x, prompt=opts.prompt)
-        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
+        timesteps = get_schedule(
+            opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell")
+        )
 
         # offload TEs to CPU, load model to gpu
         if offload:
@@ -229,6 +290,8 @@ def main(
         else:
             opts = None
 
+    if trt:
+        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)
