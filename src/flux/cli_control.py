@@ -177,7 +177,9 @@ def main(
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
     trt: bool = False,
-    trt_transformer_precision: str = "bf16",
+    trt_bf16: bool = True,
+    trt_fp8: bool = False,
+    trt_fp4: bool = False,
     **kwargs: dict | None,
 ):
     """
@@ -254,7 +256,9 @@ def main(
 
     if trt:
         trt_ctx_manager = TRTManager(
-            bf16=True,
+            bf16=trt_bf16,
+            fp8=trt_fp8,
+            fp4=trt_fp4,
             device=torch_device,
             static_batch=kwargs.get("static_batch", True),
             static_shape=kwargs.get("static_shape", True),
@@ -273,7 +277,6 @@ def main(
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             opt_image_height=height,
             opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
         )
         torch.cuda.synchronize()
 
