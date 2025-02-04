@@ -27,7 +27,7 @@ class T5Exporter(T5Mixin, BaseExporter):
         model: HFEmbedder,
         tf32=True,
         bf16=False,
-        max_batch=8,
+        max_batch=4,
         build_strongly_typed=True,
         verbose=True,
     ):

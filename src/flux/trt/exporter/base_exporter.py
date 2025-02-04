@@ -175,8 +175,10 @@ class BaseExporter(ABC):
         model: nn.Module,
         tf32=False,
         bf16=False,
+        fp8=False,
+        fp4=False,
         max_batch=4,
-        verbose=True,
+        verbose=False,
         do_constant_folding=True,
         build_strongly_typed=False,
     ):
@@ -188,6 +190,8 @@ class BaseExporter(ABC):
 
         self.tf32 = tf32
         self.bf16 = bf16
+        self.fp8 = fp8
+        self.fp4 = fp4
 
         self.min_batch = 1
         self.max_batch = max_batch
@@ -198,7 +202,7 @@ class BaseExporter(ABC):
         return next(self.model.parameters()).device
 
     def prepare_model(self):
-        if self.bf16:
+        if self.bf16 or self.fp8 or self.fp4:
             self.model = self.model.to(dtype=torch.bfloat16)
         else:
             self.model = self.model.to(dtype=torch.float32)

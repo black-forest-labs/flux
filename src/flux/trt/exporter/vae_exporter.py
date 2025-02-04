@@ -27,10 +27,9 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: Decoder,
-        fp16=False,
         tf32=True,
         bf16=False,
-        max_batch=8,
+        max_batch=4,
         verbose=True,
         compression_factor=8,
     ):
@@ -40,7 +39,6 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
             model=model,  # we need to trace only the decoder
-            fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
@@ -178,10 +176,9 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: Encoder,
-        fp16=False,
         tf32=True,
         bf16=False,
-        max_batch=8,
+        max_batch=4,
         verbose=True,
         compression_factor=8,
     ):
@@ -191,7 +188,6 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
             model=model,
-            fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
@@ -303,5 +299,5 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
         opt_image_width: int,
     ) -> torch.Tensor:
         self.check_dims(batch_size, opt_image_height, opt_image_width)
-        dtype = torch.float16 if self.fp16 else torch.bfloat16 if self.bf16 else torch.float32
+        dtype = torch.bfloat16 if self.bf16 else torch.float32
         return torch.randn(batch_size, 3, opt_image_height, opt_image_width, dtype=dtype, device=self.device)

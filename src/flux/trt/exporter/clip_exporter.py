@@ -31,7 +31,7 @@ class CLIPExporter(CLIPMixin, BaseExporter):
         model: HFEmbedder,
         tf32=True,
         bf16=False,
-        max_batch=8,
+        max_batch=4,
         verbose=True,
     ):
         super().__init__(
