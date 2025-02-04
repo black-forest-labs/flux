@@ -259,7 +259,6 @@ class TRTManager:
             if model_exporter.extra_output_names
             else None
         )
-        tf32amp = model_exporter.tf32
         bf16amp = False if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else model_exporter.bf16
         strongly_typed = True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
 
@@ -267,7 +266,6 @@ class TRTManager:
             engine_path=model_config["engine_path"],
             onnx_path=model_config["onnx_opt_path"],
             strongly_typed=strongly_typed,
-            tf32=tf32amp,
             bf16=bf16amp,
             input_profile=model_exporter.get_input_profile(
                 batch_size=opt_batch_size,

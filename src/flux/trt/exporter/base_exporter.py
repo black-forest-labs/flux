@@ -318,9 +318,9 @@ class BaseExporter(ABC):
         engine_path: str,
         onnx_path: str,
         strongly_typed=False,
-        tf32=False,
         bf16=False,
         fp8=False,
+        fp4=False,
         input_profile: dict[str, Any] | None = None,
         enable_refit=False,
         enable_all_tactics=False,
@@ -339,8 +339,8 @@ class BaseExporter(ABC):
         # Precision flags
         build_args = [
             "--bf16" if bf16 else "",
-            "--tf32" if tf32 else "",
             "--fp8" if fp8 else "",
+            "--fp4" if fp4 else "",
             "--strongly-typed" if strongly_typed else "",
         ]
 
@@ -381,7 +381,7 @@ class BaseExporter(ABC):
 
         # Filter out empty strings and join command
         build_args = [arg for arg in build_args if arg]
-        final_command = " ".join(build_command + build_args)
+        final_command = " \\\n".join(build_command + build_args)
 
         # Execute command with improved error handling
         try:
