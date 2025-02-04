@@ -32,7 +32,7 @@ Or to generate a single sample run
 ```bash
 python -m src.flux.cli_fill \
   --img_cond_path <path_to_input_image> \
-  --img_cond_mask <path_to_input_mask>
+  --img_mask_path <path_to_input_mask>
 ```
 
 The input_mask should be an image of the same size as the conditioning image that only contains black and white pixels; see [an example mask](../assets/cup_mask.png) for [this image](../assets/cup.png).

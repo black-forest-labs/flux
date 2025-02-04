@@ -35,6 +35,17 @@ python -m flux --name <name> \
   --prompt "<prompt>"
 ```
 
+### TRT engine infernece
+
+You may also download ONNX export of [FLUX.1 \[dev\]](https://huggingface.co/black-forest-labs/FLUX.1-dev-onnx) and [FLUX.1 \[schnell\]](https://huggingface.co/black-forest-labs/FLUX.1-schnell-onnx). We provide exports in BF16, FP8, and FP4 precision. Note that you need to install the repository with TensorRT support as outlined [here](../README.md).
+
+```bash
+TRT_ENGINE_DIR=<your_trt_engine_will_be_saved_here> ONNX_DIR=<path_of_downloaded_onnx_export> python src/flux/cli.py "<prompt>" --trt --static_shape=False --name=<name> --trt_transformer_precision <precision>
+```
+where `<precision>` is either bf16, fp8, or fp4. For fp4, you need a NVIDIA GPU based on the [Blackwell Architecture](https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/).
+
+### Streamlit and Gradio
+
 We also provide a streamlit demo that does both text-to-image and image-to-image. The demo can be run via
 
 ```bash
