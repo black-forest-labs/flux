@@ -178,11 +178,13 @@ class BaseExporter(ABC):
         max_batch=4,
         verbose=True,
         do_constant_folding=True,
+        build_strongly_typed=False,
     ):
         self.model = model
         self.name = model.__class__.__name__
         self.verbose = verbose
         self.do_constant_folding = do_constant_folding
+        self.build_strongly_typed = build_strongly_typed
 
         self.tf32 = tf32
         self.bf16 = bf16

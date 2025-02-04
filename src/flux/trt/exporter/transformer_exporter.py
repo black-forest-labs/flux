@@ -45,6 +45,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
+            build_strongly_typed=build_strongly_typed,
             verbose=verbose,
         )
 
@@ -52,7 +53,6 @@ class TransformerExporter(TransformerMixin, BaseExporter):
         self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
-        self.build_strongly_typed = build_strongly_typed
 
         # set proper dtype
         self.prepare_model()

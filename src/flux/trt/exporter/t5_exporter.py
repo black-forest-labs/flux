@@ -39,9 +39,9 @@ class T5Exporter(T5Mixin, BaseExporter):
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
+            build_strongly_typed=build_strongly_typed,
             verbose=verbose,
         )
-        self.build_strongly_typed = build_strongly_typed
         # set proper dtype
         self.prepare_model()
 
