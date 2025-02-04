@@ -173,7 +173,6 @@ class BaseExporter(ABC):
     def __init__(
         self,
         model: nn.Module,
-        fp16=False,
         tf32=False,
         bf16=False,
         max_batch=4,
@@ -185,7 +184,6 @@ class BaseExporter(ABC):
         self.verbose = verbose
         self.do_constant_folding = do_constant_folding
 
-        self.fp16 = fp16
         self.tf32 = tf32
         self.bf16 = bf16
 
@@ -198,9 +196,7 @@ class BaseExporter(ABC):
         return next(self.model.parameters()).device
 
     def prepare_model(self):
-        if self.fp16:
-            self.model = self.model.to(dtype=torch.float16)
-        elif self.bf16:
+        if self.bf16:
             self.model = self.model.to(dtype=torch.bfloat16)
         else:
             self.model = self.model.to(dtype=torch.float32)
@@ -261,7 +257,7 @@ class BaseExporter(ABC):
             if not os.path.exists(onnx_path):
                 print(f"[I] Exporting ONNX model: {onnx_path}")
                 print("[I] model dtype: {}".format(next(self.model.parameters()).dtype))
-                print(f"[I] fp16 = {self.fp16} | tf32 = {self.tf32} | bf16 = {self.bf16}")
+                print(f"[I] tf32 = {self.tf32} | bf16 = {self.bf16}")
 
                 def export_onnx(model: torch.nn.Module):
                     inputs = self.get_sample_input(
@@ -323,10 +319,8 @@ class BaseExporter(ABC):
         engine_path: str,
         onnx_path: str,
         strongly_typed=False,
-        fp16=False,
         bf16=False,
         tf32=False,
-        int8=False,
         fp8=False,
         input_profile: dict[str, Any] | None = None,
         enable_refit=False,
@@ -364,10 +358,8 @@ class BaseExporter(ABC):
             engine = engine_from_network(
                 network,
                 config=CreateConfig(
-                    fp16=fp16,
                     bf16=bf16,
                     tf32=tf32,
-                    int8=int8,
                     fp8=fp8,
                     refittable=enable_refit,
                     profiles=[p],

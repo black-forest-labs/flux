@@ -29,7 +29,6 @@ class CLIPExporter(CLIPMixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
-        fp16=False,
         tf32=True,
         bf16=False,
         max_batch=8,
@@ -39,7 +38,6 @@ class CLIPExporter(CLIPMixin, BaseExporter):
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
             model=TransformersModelWrapper(model=model, output_name="pooler_output"),
-            fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,

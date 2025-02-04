@@ -70,7 +70,6 @@ class TRTManager:
         self,
         device: str | torch.device,
         max_batch=1,
-        fp16=False,
         bf16=False,
         tf32=True,
         static_batch=True,
@@ -80,7 +79,6 @@ class TRTManager:
     ):
         self.device = device
         self.max_batch = max_batch
-        self.fp16 = fp16
         self.bf16 = bf16
         self.tf32 = tf32
         self.static_batch = static_batch
@@ -195,41 +193,14 @@ class TRTManager:
         for model_name, model in models.items():
             exporter_class = self.model_to_exporter_dict[model_name]
 
-            if model_name == "t5":
-                # traced in tf32 for numerical stability when on fp16
-                exporter = exporter_class(
-                    model=model,
-                    fp16=False,
-                    bf16=self.bf16,
-                    tf32=self.tf32,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-                exporters[model_name] = exporter
-
-            elif model_name.startswith("vae"):
-                # Accuracy issues with FP16 and BF16
-                # fallback to FP32
-                exporter = exporter_class(
-                    model=model,
-                    fp16=False,
-                    bf16=False,
-                    tf32=self.tf32,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-                exporters[model_name] = exporter
-
-            else:
-                onnx_exporter = exporter_class(
-                    model=model,
-                    fp16=self.fp16,
-                    bf16=self.bf16,
-                    tf32=self.tf32,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-                exporters[model_name] = onnx_exporter
+            onnx_exporter = exporter_class(
+                model=model,
+                bf16=self.bf16,
+                tf32=self.tf32,
+                max_batch=self.max_batch,
+                verbose=self.verbose,
+            )
+            exporters[model_name] = onnx_exporter
 
         if "transformer" in exporters and "t5" in exporters:
             exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
@@ -288,7 +259,6 @@ class TRTManager:
             if model_exporter.extra_output_names
             else None
         )
-        fp16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.fp16
         tf32amp = model_exporter.tf32
         bf16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.bf16
         strongly_typed = True if getattr(model_exporter, "build_strongly_typed", False) else False
@@ -302,7 +272,6 @@ class TRTManager:
             engine_path=model_config["engine_path"],
             onnx_path=model_config["onnx_opt_path"],
             strongly_typed=strongly_typed,
-            fp16=fp16amp,
             tf32=tf32amp,
             bf16=bf16amp,
             input_profile=model_exporter.get_input_profile(

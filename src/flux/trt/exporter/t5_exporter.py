@@ -25,11 +25,10 @@ class T5Exporter(T5Mixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
-        fp16=False,
         tf32=True,
         bf16=False,
         max_batch=8,
-        build_strongly_typed=False,
+        build_strongly_typed=True,
         verbose=True,
     ):
         exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
@@ -37,7 +36,6 @@ class T5Exporter(T5Mixin, BaseExporter):
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
             model=exp_model,
-            fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,

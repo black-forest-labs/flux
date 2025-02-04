@@ -27,7 +27,6 @@ class TransformerExporter(TransformerMixin, BaseExporter):
     def __init__(
         self,
         model: Flux,
-        fp16=False,
         tf32=True,
         bf16=False,
         max_batch=8,
@@ -43,7 +42,6 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             out_channels=model.out_channels,
             compression_factor=compression_factor,
             model=FluxModelWrapper(model),
-            fp16=fp16,
             tf32=tf32,
             bf16=bf16,
             max_batch=max_batch,
@@ -204,9 +202,7 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             image_height=opt_image_height,
             image_width=opt_image_width,
         )
-        if self.fp16:
-            dtype = torch.float16
-        elif self.bf16:
+        if self.bf16:
             dtype = torch.bfloat16
         else:
             dtype = torch.float32
