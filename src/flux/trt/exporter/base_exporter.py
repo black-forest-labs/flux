@@ -19,11 +19,11 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from colored import fore, style
 from typing import Any
 
 import onnx
 import onnx_graphsurgeon as gs
-import tensorrt as trt
 import torch
 from onnx import shape_inference
 from polygraphy.backend.onnx.loader import fold_constants
@@ -385,7 +385,7 @@ class BaseExporter(ABC):
 
         # Execute command with improved error handling
         try:
-            print(f"Engine build command: {final_command}")
+            print(f"Engine build command:{fore('yellow')}\n{final_command}\n{style('reset')}")
             subprocess.run(final_command, check=True, shell=True)
         except subprocess.CalledProcessError as exc:
             error_msg = f"Failed to build TensorRT engine. Error details:\nCommand: {exc.cmd}\n"
