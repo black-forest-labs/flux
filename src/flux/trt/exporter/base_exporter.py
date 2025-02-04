@@ -15,8 +15,10 @@
 # limitations under the License.
 
 import os
+import subprocess
 import tempfile
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from typing import Any
 
 import onnx
@@ -25,15 +27,6 @@ import tensorrt as trt
 import torch
 from onnx import shape_inference
 from polygraphy.backend.onnx.loader import fold_constants
-from polygraphy.backend.trt import (
-    CreateConfig,
-    ModifyNetworkOutputs,
-    Profile,
-    engine_from_network,
-    network_from_onnx_path,
-    save_engine,
-)
-from polygraphy.logger import G_LOGGER
 from torch import Tensor, nn
 from transformers import PreTrainedModel
 
@@ -325,8 +318,8 @@ class BaseExporter(ABC):
         engine_path: str,
         onnx_path: str,
         strongly_typed=False,
-        bf16=False,
         tf32=False,
+        bf16=False,
         fp8=False,
         input_profile: dict[str, Any] | None = None,
         enable_refit=False,
@@ -334,44 +327,66 @@ class BaseExporter(ABC):
         timing_cache=None,
         update_output_names: list[str] | None = None,
         native_instancenorm=True,
+        builder_optimization_level=3,
+        precision_constraints="none",
         verbose=False,
-        **extra_build_args,
     ):
         print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
-        p = Profile()
-        if input_profile:
-            for name, dims in input_profile.items():
-                assert len(dims) == 3
-                p.add(name, min=dims[0], opt=dims[1], max=dims[2])
 
-        if not enable_all_tactics:
-            extra_build_args["tactic_sources"] = []
+        # Base command
+        build_command = [f"polygraphy convert {onnx_path} --convert-to trt --output {engine_path}"]
 
-        flags = []
-        if native_instancenorm:
-            flags.append(trt.OnnxParserFlag.NATIVE_INSTANCENORM)
+        # Precision flags
+        build_args = [
+            "--bf16" if bf16 else "",
+            "--tf32" if tf32 else "",
+            "--fp8" if fp8 else "",
+            "--strongly-typed" if strongly_typed else "",
+        ]
 
-        print(f"Strongly typed mode is {strongly_typed} for {onnx_path}")
-        network = network_from_onnx_path(
-            onnx_path,
-            flags=flags,
-            strongly_typed=strongly_typed,
+        # Additional arguments
+        build_args.extend(
+            [
+                "--refittable" if enable_refit else "",
+                "--tactic-sources" if not enable_all_tactics else "",
+                "--onnx-flags native_instancenorm" if native_instancenorm else "",
+                f"--builder-optimization-level {builder_optimization_level}",
+                f"--precision-constraints {precision_constraints}",
+            ]
         )
+
+        # Timing cache
+        if timing_cache:
+            build_args.extend([f"--load-timing-cache {timing_cache}", f"--save-timing-cache {timing_cache}"])
+
+        # Verbosity setting
+        verbosity = "extra_verbose" if verbose else "error"
+        build_args.append(f"--verbosity {verbosity}")
+
+        # Output names
         if update_output_names:
             print(f"Updating network outputs to {update_output_names}")
-            network = ModifyNetworkOutputs(network, update_output_names)
-        with G_LOGGER.verbosity(G_LOGGER.EXTRA_VERBOSE if verbose else G_LOGGER.ERROR):
-            engine = engine_from_network(
-                network,
-                config=CreateConfig(
-                    bf16=bf16,
-                    tf32=tf32,
-                    fp8=fp8,
-                    refittable=enable_refit,
-                    profiles=[p],
-                    load_timing_cache=timing_cache,
-                    **extra_build_args,
-                ),
-                save_timing_cache=timing_cache,
-            )
-            save_engine(engine, path=engine_path)
+            build_args.append(f"--trt-outputs {' '.join(update_output_names)}")
+
+        # Input profiles
+        if input_profile:
+            profile_args = defaultdict(str)
+            for name, dims in input_profile.items():
+                assert len(dims) == 3
+                profile_args["--trt-min-shapes"] += f"{name}:{str(list(dims[0])).replace(' ', '')} "
+                profile_args["--trt-opt-shapes"] += f"{name}:{str(list(dims[1])).replace(' ', '')} "
+                profile_args["--trt-max-shapes"] += f"{name}:{str(list(dims[2])).replace(' ', '')} "
+
+            build_args.extend(f"{k} {v}" for k, v in profile_args.items())
+
+        # Filter out empty strings and join command
+        build_args = [arg for arg in build_args if arg]
+        final_command = " ".join(build_command + build_args)
+
+        # Execute command with improved error handling
+        try:
+            print(f"Engine build command: {final_command}")
+            subprocess.run(final_command, check=True, shell=True)
+        except subprocess.CalledProcessError as exc:
+            error_msg = f"Failed to build TensorRT engine. Error details:\nCommand: {exc.cmd}\n"
+            raise RuntimeError(error_msg) from exc
