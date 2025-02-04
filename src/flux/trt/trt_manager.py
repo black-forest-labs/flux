@@ -180,7 +180,6 @@ class TRTManager:
             exporter_class = self.model_to_exporter_dict[model_name]
 
             if model_name == "transformer":
-                # supported dtype: FP32, BF16, FP8, FP4
                 onnx_exporter = exporter_class(
                     model=model,
                     tf32=self.tf32,
@@ -192,7 +191,6 @@ class TRTManager:
                 )
             else:
                 bf16 = True if self.fp8 or self.fp4 else self.bf16
-                # supported dtype: FP32, BF16
                 onnx_exporter = exporter_class(
                     model=model,
                     tf32=self.tf32,
@@ -259,6 +257,7 @@ class TRTManager:
             if model_exporter.extra_output_names
             else None
         )
+        tf32amp = model_exporter.tf32
         bf16amp = False if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else model_exporter.bf16
         strongly_typed = True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
 
@@ -266,6 +265,7 @@ class TRTManager:
             engine_path=model_config["engine_path"],
             onnx_path=model_config["onnx_opt_path"],
             strongly_typed=strongly_typed,
+            tf32=tf32amp,
             bf16=bf16amp,
             input_profile=model_exporter.get_input_profile(
                 batch_size=opt_batch_size,
