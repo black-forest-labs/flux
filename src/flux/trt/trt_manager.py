@@ -189,6 +189,14 @@ class TRTManager:
                     max_batch=self.max_batch,
                     verbose=self.verbose,
                 )
+            elif model_name == "vae_encoder":
+                onnx_exporter = exporter_class(
+                    model=model,
+                    tf32=self.tf32,
+                    bf16=False,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
             else:
                 bf16 = True if self.fp8 or self.fp4 else self.bf16
                 onnx_exporter = exporter_class(
