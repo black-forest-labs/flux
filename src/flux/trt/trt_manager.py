@@ -133,24 +133,6 @@ class TRTManager:
             + ".plan",
         )
 
-    @staticmethod
-    def _get_weights_map_path(
-        model_name: str,
-        onnx_dir: str,
-    ) -> str:
-        onnx_model_dir = os.path.join(onnx_dir, model_name + ".opt")
-        os.makedirs(onnx_model_dir, exist_ok=True)
-        return os.path.join(onnx_model_dir, "weights_map.json")
-
-    @staticmethod
-    def _get_refit_nodes_path(
-        model_name: str,
-        onnx_dir: str,
-        suffix: str = "",
-    ) -> str:
-        onnx_model_dir = os.path.join(onnx_dir, model_name + ".opt")
-        os.makedirs(onnx_model_dir, exist_ok=True)
-        return os.path.join(onnx_model_dir, "refit" + suffix + ".json")
 
     @staticmethod
     def _prepare_model_configs(
