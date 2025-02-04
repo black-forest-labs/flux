@@ -176,8 +176,7 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
-    trt: bool = False,
-    trt_bf16: bool = True,
+    trt_bf16: bool = False,
     trt_fp8: bool = False,
     trt_fp4: bool = False,
     **kwargs: dict | None,
@@ -254,7 +253,7 @@ def main(
     else:
         raise NotImplementedError()
 
-    if trt:
+    if trt_bf16 or trt_fp8 or trt_fp4:
         trt_ctx_manager = TRTManager(
             bf16=trt_bf16,
             fp8=trt_fp8,
