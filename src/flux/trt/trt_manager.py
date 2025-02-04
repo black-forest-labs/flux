@@ -69,18 +69,22 @@ class TRTManager:
     def __init__(
         self,
         device: str | torch.device,
-        max_batch=1,
-        bf16=False,
+        max_batch=2,
         tf32=True,
+        bf16=False,
+        fp8=False,
+        fp4=False,
         static_batch=True,
         static_shape=True,
-        verbose=True,
-        **kwargs,
+        verbose=False,
     ):
+        assert bf16 + fp8 + fp4 == 1, "only one model type can be active"
         self.device = device
         self.max_batch = max_batch
-        self.bf16 = bf16
         self.tf32 = tf32
+        self.bf16 = bf16
+        self.fp8 = fp8
+        self.fp4 = fp4
         self.static_batch = static_batch
         self.static_shape = static_shape
         self.verbose = verbose
@@ -193,13 +197,27 @@ class TRTManager:
         for model_name, model in models.items():
             exporter_class = self.model_to_exporter_dict[model_name]
 
-            onnx_exporter = exporter_class(
-                model=model,
-                bf16=self.bf16,
-                tf32=self.tf32,
-                max_batch=self.max_batch,
-                verbose=self.verbose,
-            )
+            if model_name == "transformer":
+                # supported dtype: FP32, BF16, FP8, FP4
+                onnx_exporter = exporter_class(
+                    model=model,
+                    tf32=self.tf32,
+                    bf16=self.bf16,
+                    fp8=self.fp8,
+                    fp4=self.fp4,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
+            else:
+                bf16 = True if self.fp8 or self.fp4 else self.bf16
+                # supported dtype: FP32, BF16
+                onnx_exporter = exporter_class(
+                    model=model,
+                    tf32=self.tf32,
+                    bf16=bf16,
+                    max_batch=self.max_batch,
+                    verbose=self.verbose,
+                )
             exporters[model_name] = onnx_exporter
 
         if "transformer" in exporters and "t5" in exporters:
@@ -260,13 +278,8 @@ class TRTManager:
             else None
         )
         tf32amp = model_exporter.tf32
-        bf16amp = False if getattr(model_exporter, "build_strongly_typed", False) else model_exporter.bf16
-        strongly_typed = True if getattr(model_exporter, "build_strongly_typed", False) else False
-
-        extra_build_args = {
-            "verbose": verbose,
-            "builder_optimization_level": optimization_level,
-        }
+        bf16amp = False if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else model_exporter.bf16
+        strongly_typed = True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
 
         model_exporter.build(
             engine_path=model_config["engine_path"],
@@ -284,7 +297,8 @@ class TRTManager:
             enable_all_tactics=enable_all_tactics,
             timing_cache=timing_cache,
             update_output_names=update_output_names,
-            **extra_build_args,
+            builder_optimization_level=optimization_level,
+            verbose=verbose,
         )
 
         # Reclaim GPU memory from torch cache
@@ -298,14 +312,12 @@ class TRTManager:
         onnx_dir: str,
         opt_image_height: int,
         opt_image_width: int,
-        transformer_precision: str,
         opt_batch_size=1,
         onnx_opset=19,
         optimization_level=3,
         enable_all_tactics=False,
         timing_cache=None,
     ) -> dict[str, BaseEngine]:
-        assert transformer_precision in ["bf16", "fp8", "fp4"], "Invalid transformer precision"
 
         self._create_directories(
             engine_dir=engine_dir,
@@ -316,7 +328,7 @@ class TRTManager:
             models=models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
-            transformer_precision=transformer_precision,
+            transformer_precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
         )
 
         exporters = self._get_exporters(models)
