@@ -179,6 +179,7 @@ def main(
     trt_bf16: bool = False,
     trt_fp8: bool = False,
     trt_fp4: bool = False,
+    trt_t5_fp8: bool = False,
     **kwargs: dict | None,
 ):
     """
@@ -258,6 +259,7 @@ def main(
             bf16=trt_bf16,
             fp8=trt_fp8,
             fp4=trt_fp4,
+            t5_fp8=trt_t5_fp8,
             device=torch_device,
             static_batch=kwargs.get("static_batch", True),
             static_shape=kwargs.get("static_shape", True),
