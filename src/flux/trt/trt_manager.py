@@ -32,6 +32,7 @@ from flux.trt.engine import (
     VAEEncoder,
     VAEEngine,
 )
+from flux.trt.configs import get_config
 from flux.trt.exporter import (
     BaseExporter,
     CLIPExporter,
@@ -74,6 +75,7 @@ class TRTManager:
         bf16=False,
         fp8=False,
         fp4=False,
+        t5_fp8=False,
         static_batch=True,
         static_shape=True,
         verbose=False,
@@ -85,6 +87,7 @@ class TRTManager:
         self.bf16 = bf16
         self.fp8 = fp8
         self.fp4 = fp4
+        self.t5_fp8 = t5_fp8
         self.static_batch = static_batch
         self.static_shape = static_shape
         self.verbose = verbose
@@ -133,7 +136,6 @@ class TRTManager:
             + ".plan",
         )
 
-
     @staticmethod
     def _prepare_model_configs(
         models: dict[str, torch.nn.Module],
@@ -174,39 +176,54 @@ class TRTManager:
     def _get_exporters(
         self,
         models: dict[str, torch.nn.Module],
+        engine_dir: str,
+        onnx_dir: str,
     ) -> dict[str, Union[BaseMixin, BaseExporter]]:
         exporters = {}
         for model_name, model in models.items():
             exporter_class = self.model_to_exporter_dict[model_name]
-
-            if model_name == "transformer":
-                onnx_exporter = exporter_class(
-                    model=model,
-                    tf32=self.tf32,
-                    bf16=self.bf16,
-                    fp8=self.fp8,
-                    fp4=self.fp4,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-            elif model_name == "vae_encoder":
-                onnx_exporter = exporter_class(
-                    model=model,
-                    tf32=self.tf32,
-                    bf16=False,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-            else:
-                bf16 = True if self.fp8 or self.fp4 else self.bf16
-                onnx_exporter = exporter_class(
-                    model=model,
-                    tf32=self.tf32,
-                    bf16=bf16,
-                    max_batch=self.max_batch,
-                    verbose=self.verbose,
-                )
-            exporters[model_name] = onnx_exporter
+            config_cls = get_config(
+                model_name=model_name,
+                tf32=self.tf32,
+                bf16=self.bf16,
+                fp8=self.fp8,
+                fp4=self.fp4,
+                t5_fp8=self.t5_fp8,
+            )
+            config = config_cls(
+                onnx_dir=onnx_dir,
+                engine_dir=engine_dir,
+                verbose=self.verbose,
+                precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
+            )
+            # if model_name == "transformer":
+            #     onnx_exporter = exporter_class(
+            #         model=model,
+            #         tf32=self.tf32,
+            #         bf16=self.bf16,
+            #         fp8=self.fp8,
+            #         fp4=self.fp4,
+            #         max_batch=self.max_batch,
+            #         verbose=self.verbose,
+            #     )
+            # elif model_name == "vae_encoder":
+            #     onnx_exporter = exporter_class(
+            #         model=model,
+            #         tf32=self.tf32,
+            #         bf16=False,
+            #         max_batch=self.max_batch,
+            #         verbose=self.verbose,
+            #     )
+            # else:
+            #     bf16 = True if self.fp8 or self.fp4 else self.bf16
+            #     onnx_exporter = exporter_class(
+            #         model=model,
+            #         tf32=self.tf32,
+            #         bf16=bf16,
+            #         max_batch=self.max_batch,
+            #         verbose=self.verbose,
+            #     )
+            exporters[model_name] = exporter_class(**vars(config), model=model, max_batch=self.max_batch)
 
         if "transformer" in exporters and "t5" in exporters:
             exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
@@ -226,17 +243,20 @@ class TRTManager:
         do_export_onnx = not os.path.exists(model_config["engine_path"]) and not os.path.exists(
             model_config["onnx_opt_path"]
         )
+        assert not do_export_onnx, "Onnx model should be provided, but not present at: {}".format(
+            model_config["onnx_opt_path"]
+        )
 
-        model_exporter.model = model_exporter.model.to(self.device)
+        # model_exporter.model = model_exporter.model.to(self.device)
 
-        if do_export_onnx:
-            model_exporter.export_onnx(
-                onnx_path=model_config["onnx_path"],
-                onnx_opt_path=model_config["onnx_opt_path"],
-                onnx_opset=onnx_opset,
-                opt_image_height=opt_image_height,
-                opt_image_width=opt_image_width,
-            )
+        # if do_export_onnx:
+        #     model_exporter.export_onnx(
+        #         onnx_path=model_config["onnx_path"],
+        #         onnx_opt_path=model_config["onnx_opt_path"],
+        #         onnx_opset=onnx_opset,
+        #         opt_image_height=opt_image_height,
+        #         opt_image_width=opt_image_width,
+        #     )
 
         model_exporter.model = model_exporter.model.to("cpu")
         gc.collect()
@@ -266,8 +286,14 @@ class TRTManager:
             else None
         )
         tf32amp = model_exporter.tf32
-        bf16amp = False if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else model_exporter.bf16
-        strongly_typed = True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
+        bf16amp = (
+            False
+            if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed
+            else model_exporter.bf16
+        )
+        strongly_typed = (
+            True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
+        )
 
         model_exporter.build(
             engine_path=model_config["engine_path"],
@@ -306,7 +332,6 @@ class TRTManager:
         enable_all_tactics=False,
         timing_cache=None,
     ) -> dict[str, BaseEngine]:
-
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -319,7 +344,11 @@ class TRTManager:
             transformer_precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
         )
 
-        exporters = self._get_exporters(models)
+        exporters = self._get_exporters(
+            models,
+            engine_dir=engine_dir,
+            onnx_dir=onnx_dir,
+        )
 
         # Export models to ONNX
         for model_name, model_exporter in exporters.items():
