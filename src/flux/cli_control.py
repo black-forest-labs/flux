@@ -180,6 +180,10 @@ def main(
     trt_fp8: bool = False,
     trt_fp4: bool = False,
     trt_t5_fp8: bool = False,
+    trt_onnx_dir: str = "onnx_models",
+    trt_engine_dir: str = "engines",
+    trt_static_batch: bool = True,
+    trt_static_shape: bool = True,
     **kwargs: dict | None,
 ):
     """
@@ -272,12 +276,12 @@ def main(
                 "vae": ae.decoder.cpu(),
                 "vae_encoder": ae.encoder.cpu(),
             },
-            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
-            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            engine_dir=trt_engine_dir,
+            onnx_dir=trt_onnx_dir,
             opt_image_height=height,
             opt_image_width=width,
-            trt_static_batch=kwargs.get("static_batch", True),
-            trt_static_shape=kwargs.get("static_shape", True),
+            trt_static_batch=trt_static_batch,
+            trt_static_shape=trt_static_shape,
         )
         torch.cuda.synchronize()
 
