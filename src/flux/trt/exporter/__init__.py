@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flux.trt.exporter.base_exporter import BaseExporter
+from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config, get_config
 from flux.trt.exporter.clip_exporter import CLIPExporter
 from flux.trt.exporter.t5_exporter import T5Exporter
 from flux.trt.exporter.transformer_exporter import TransformerExporter
 from flux.trt.exporter.vae_exporter import VAEDecoderExporter, VAEEncoderExporter
 
 __all__ = [
+    "register_config",
+    "get_config",
     "BaseExporter",
+    "TRTBaseConfig",
     "CLIPExporter",
     "T5Exporter",
     "TransformerExporter",
