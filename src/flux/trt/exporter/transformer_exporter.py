@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,27 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+from dataclasses import dataclass
 from math import ceil
 
-import torch
+from tensorrt import __version__ as trt_version
 
 from flux.model import Flux
-from flux.trt.exporter.base_exporter import BaseExporter, FluxModelWrapper
+from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
 from flux.trt.mixin import TransformerMixin
+
+
+@register_config(model_name="transformer", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="transformer", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="transformer", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class TransformerConfig(TRTBaseConfig):
+    model_name: str = "transformer"
+    trt_tf32: bool = True
+    trt_bf16: bool = False
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = True
+
+    def _get_onnx_path(self) -> str:
+        return os.path.join(
+            self.onnx_dir,
+            self.model_name + ".opt",
+            self.precision,
+            "model.onnx",
+        )
+
+    def _get_engine_path(self) -> str:
+        return os.path.join(
+            self.engine_dir,
+            f"{self.model_name}_{self.precision}.trt{trt_version}.plan",
+        )
 
 
 class TransformerExporter(TransformerMixin, BaseExporter):
     def __init__(
         self,
         model: Flux,
-        tf32=True,
-        bf16=False,
-        fp8=False,
-        fp4=False,
+        trt_config: TRTBaseConfig,
         max_batch=4,
-        verbose=True,
         compression_factor=8,
-        build_strongly_typed=True,
     ):
         super().__init__(
             guidance_embed=model.params.guidance_embed,
@@ -43,54 +67,14 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             in_channels=model.params.in_channels,
             out_channels=model.out_channels,
             compression_factor=compression_factor,
-            model=FluxModelWrapper(model),
-            tf32=tf32,
-            bf16=bf16,
-            fp8=fp8,
-            fp4=fp4,
+            trt_config=trt_config,
             max_batch=max_batch,
-            build_strongly_typed=build_strongly_typed,
-            verbose=verbose,
         )
 
         self.min_image_shape = 768
         self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
-
-        # set proper dtype
-        self.prepare_model()
-
-    def get_input_names(self):
-        inputs = [
-            "hidden_states",
-            "encoder_hidden_states",
-            "pooled_projections",
-            "timestep",
-            "img_ids",
-            "txt_ids",
-        ]
-        if self.guidance_embed:
-            inputs.append("guidance")
-
-        return inputs
-
-    def get_output_names(self):
-        return ["latent"]
-
-    def get_dynamic_axes(self):
-        dynamic_axes = {
-            "hidden_states": {0: "B", 1: "latent_dim"},
-            "encoder_hidden_states": {0: "B"},
-            "pooled_projections": {0: "B"},
-            "timestep": {0: "B"},
-            "img_ids": {0: "latent_dim"},
-        }
-        if self.guidance_embed:
-            dynamic_axes["guidance"] = {0: "B"}
-
-        # dynamic_axes["latent"] = {0: "B", 1: "latent_dim"}
-        return dynamic_axes
 
     def get_minmax_dims(
         self,
@@ -194,41 +178,3 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             input_profile["guidance"] = [(min_batch,), (batch_size,), (max_batch,)]
 
         return input_profile
-
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> tuple:
-        latent_height, latent_width = self.check_dims(
-            batch_size=batch_size,
-            image_height=opt_image_height,
-            image_width=opt_image_width,
-        )
-        if self.bf16:
-            dtype = torch.bfloat16
-        else:
-            dtype = torch.float32
-
-        inputs = (
-            torch.randn(
-                batch_size,
-                (latent_height // 2) * (latent_width // 2),
-                self.in_channels,
-                dtype=dtype,
-                device=self.device,
-            ),
-            torch.randn(batch_size, self.text_maxlen, self.context_in_dim, dtype=dtype, device=self.device)
-            * 0.5,
-            torch.randn(batch_size, self.vec_in_dim, dtype=dtype, device=self.device),
-            torch.tensor(data=[1.0] * batch_size, dtype=dtype, device=self.device),
-            torch.zeros(
-                (latent_height // 2) * (latent_width // 2), 3, dtype=torch.float32, device=self.device
-            ),
-            torch.zeros(self.text_maxlen, 3, dtype=torch.float32, device=self.device),
-        )
-
-        if self.guidance_embed:
-            inputs = inputs + (torch.full((batch_size,), 3.5, dtype=dtype, device=self.device),)
-        return inputs

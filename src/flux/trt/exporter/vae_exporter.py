@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,24 +13,33 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from dataclasses import dataclass
 from math import ceil
 
-import torch
-
 from flux.modules.autoencoder import Decoder, Encoder
-from flux.trt.exporter.base_exporter import BaseExporter
+from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
 from flux.trt.mixin import VAEMixin
+
+
+@register_config(model_name="vae", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="vae", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="vae", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class VAEDecoderConfig(TRTBaseConfig):
+    model_name: str = "vae"
+    trt_tf32: bool = True
+    trt_bf16: bool = True
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
 
 
 class VAEDecoderExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: Decoder,
-        tf32=True,
-        bf16=False,
+        trt_config: TRTBaseConfig,
         max_batch=4,
-        verbose=True,
         compression_factor=8,
     ):
         super().__init__(
@@ -38,32 +47,14 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
             compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            model=model,  # we need to trace only the decoder
-            tf32=tf32,
-            bf16=bf16,
+            trt_config=trt_config,
             max_batch=max_batch,
-            verbose=verbose,
         )
 
         self.min_image_shape = 768
         self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
-
-        # set proper dtype
-        self.prepare_model()
-
-    def get_input_names(self):
-        return ["latent"]
-
-    def get_output_names(self):
-        return ["images"]
-
-    def get_dynamic_axes(self):
-        return {
-            "latent": {0: "B", 2: "H", 3: "W"},
-            "images": {0: "B", 2: f"{self.compression_factor}H", 3: f"{self.compression_factor}W"},
-        }
 
     def check_dims(
         self,
@@ -150,36 +141,26 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
             ]
         }
 
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> torch.Tensor:
-        latent_height, latent_width = self.check_dims(
-            batch_size=batch_size,
-            image_height=opt_image_height,
-            image_width=opt_image_width,
-        )
 
-        return torch.randn(
-            batch_size,
-            self.z_channels,
-            latent_height,
-            latent_width,
-            dtype=torch.float32,
-            device=self.device,
-        )
+@register_config(model_name="vae_encoder", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class VAEEncoderConfig(TRTBaseConfig):
+    model_name: str = "vae_encoder"
+    trt_tf32: bool = True
+    trt_bf16: bool = False
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
 
 
 class VAEEncoderExporter(VAEMixin, BaseExporter):
     def __init__(
         self,
         model: Encoder,
-        tf32=True,
-        bf16=False,
+        trt_config: TRTBaseConfig,
         max_batch=4,
-        verbose=True,
         compression_factor=8,
     ):
         super().__init__(
@@ -187,29 +168,14 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
             compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            model=model,
-            tf32=tf32,
-            bf16=bf16,
+            trt_config=trt_config,
             max_batch=max_batch,
-            verbose=verbose,
         )
 
         self.min_image_shape = 768
         self.max_image_shape = 1344
         self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
-
-        # set proper dtype
-        self.prepare_model()
-
-    def get_input_names(self):
-        return ["images"]
-
-    def get_output_names(self):
-        return ["latent"]
-
-    def get_dynamic_axes(self):
-        return {"images": {0: "B", 2: "8H", 3: "8W"}, "latent": {0: "B", 2: "H", 3: "W"}}
 
     def check_dims(
         self,
@@ -291,13 +257,3 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
                 (max_batch, 3, max_image_height, max_image_width),
             ],
         }
-
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> torch.Tensor:
-        self.check_dims(batch_size, opt_image_height, opt_image_width)
-        dtype = torch.bfloat16 if self.bf16 else torch.float32
-        return torch.randn(batch_size, 3, opt_image_height, opt_image_width, dtype=dtype, device=self.device)

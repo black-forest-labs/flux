@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,68 +14,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from dataclasses import dataclass
 
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import BaseExporter, TransformersModelWrapper
+from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
 from flux.trt.mixin import T5Mixin
+
+
+@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class T5Config(TRTBaseConfig):
+    model_name: str = "t5"
+    trt_tf32: bool = True
+    trt_bf16: bool = False
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = True
+
+
+@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False, t5_fp8=True)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False, t5_fp8=True)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True, t5_fp8=True)
+@dataclass
+class T5Fp8Config(TRTBaseConfig):
+    model_name: str = "t5"
+    trt_tf32: bool = False
+    trt_bf16: bool = True
+    trt_fp8: bool = True
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
 
 
 class T5Exporter(T5Mixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
-        tf32=True,
-        bf16=False,
+        trt_config: TRTBaseConfig,
         max_batch=4,
-        build_strongly_typed=True,
-        verbose=True,
     ):
-        exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
         super().__init__(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            model=exp_model,
-            tf32=tf32,
-            bf16=bf16,
+            trt_config=trt_config,
             max_batch=max_batch,
-            build_strongly_typed=build_strongly_typed,
-            verbose=verbose,
         )
-        # set proper dtype
-        self.prepare_model()
-
-    def get_input_names(self):
-        return ["input_ids"]
-
-    def get_output_names(self):
-        return ["text_embeddings"]
-
-    def get_dynamic_axes(self):
-        dynamic_axes = {
-            "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
-        }
-        return dynamic_axes
 
     def check_dims(
         self,
         batch_size: int,
     ) -> None:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
-
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> torch.Tensor:
-        self.check_dims(batch_size)
-        return torch.zeros(
-            (batch_size, self.text_maxlen),
-            dtype=torch.int32,
-            device=self.device,
-        )
 
     def get_input_profile(
         self,

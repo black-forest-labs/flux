@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,70 +14,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from dataclasses import dataclass
 
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import (
-    BaseExporter,
-    Optimizer,
-    TransformersModelWrapper,
-)
+from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
 from flux.trt.mixin import CLIPMixin
+
+
+@register_config(model_name="clip", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="clip", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="clip", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class ClipConfig(TRTBaseConfig):
+    model_name: str = "clip"
+    trt_tf32: bool = True
+    trt_bf16: bool = True
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
 
 
 class CLIPExporter(CLIPMixin, BaseExporter):
     def __init__(
         self,
         model: HFEmbedder,
-        tf32=True,
-        bf16=False,
+        trt_config: TRTBaseConfig,
         max_batch=4,
-        verbose=True,
     ):
         super().__init__(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            model=TransformersModelWrapper(model=model, output_name="pooler_output"),
-            tf32=tf32,
-            bf16=bf16,
+            trt_config=trt_config,
             max_batch=max_batch,
-            verbose=verbose,
         )
-
-        self.prepare_model()
-
-    def get_input_names(self):
-        return ["input_ids"]
-
-    def get_output_names(self):
-        return ["pooled_embeddings"]
-
-    def get_dynamic_axes(self):
-        dynamic_axes = {
-            "input_ids": {0: "B"},
-            "pooled_embeddings": {0: "B"},
-        }
-        return dynamic_axes
 
     def check_dims(
         self,
         batch_size: int,
     ) -> None:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
-
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> torch.Tensor:
-        self.check_dims(batch_size)
-        return torch.zeros(
-            batch_size,
-            self.text_maxlen,
-            dtype=torch.int32,
-            device=self.device,
-        )
 
     def get_input_profile(
         self,
@@ -98,19 +73,3 @@ class CLIPExporter(CLIPMixin, BaseExporter):
                 (max_batch, self.text_maxlen),
             ]
         }
-
-    def optimize(self, onnx_graph, return_onnx=True):
-        opt = Optimizer(onnx_graph, verbose=self.verbose)
-        opt.info(self.name + ": original")
-        keep_outputs = [0]
-        opt.select_outputs(keep_outputs)
-        opt.cleanup()
-        opt.fold_constants()
-        opt.info(self.name + ": fold constants")
-        opt.infer_shapes()
-        opt.info(self.name + ": shape inference")
-        opt.select_outputs(keep_outputs, names=self.get_output_names())  # rename network outputs
-        opt.info(self.name + ": rename network output(s)")
-        opt_onnx_graph = opt.cleanup(return_onnx=return_onnx)
-        opt.info(self.name + ": finished")
-        return opt_onnx_graph
