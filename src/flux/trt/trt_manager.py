@@ -17,7 +17,7 @@ import gc
 import os
 import sys
 import warnings
-from typing import Any, Union
+from typing import Union
 
 import tensorrt as trt
 import torch
@@ -32,8 +32,8 @@ from flux.trt.engine import (
     VAEEncoder,
     VAEEngine,
 )
-from flux.trt.configs import get_config
 from flux.trt.exporter import (
+    get_config,
     BaseExporter,
     CLIPExporter,
     T5Exporter,
@@ -76,8 +76,6 @@ class TRTManager:
         fp8=False,
         fp4=False,
         t5_fp8=False,
-        static_batch=True,
-        static_shape=True,
         verbose=False,
     ):
         assert bf16 + fp8 + fp4 == 1, "only one model type can be active"
@@ -88,8 +86,6 @@ class TRTManager:
         self.fp8 = fp8
         self.fp4 = fp4
         self.t5_fp8 = t5_fp8
-        self.static_batch = static_batch
-        self.static_shape = static_shape
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
@@ -102,82 +98,18 @@ class TRTManager:
             print(f"[I] Create directory: {directory} if not existing")
             os.makedirs(directory, exist_ok=True)
 
-    @staticmethod
-    def _get_onnx_path(
-        model_name: str,
-        onnx_dir: str,
-        opt: bool = True,
-        suffix: str = "",
-        transformer_precision: str = "bf16",
-    ) -> str:
-        onnx_model_dir = os.path.join(
-            onnx_dir,
-            model_name + suffix + (".opt" if opt else ""),
-        )
-        if model_name == "transformer":
-            onnx_model_dir = os.path.join(onnx_model_dir, transformer_precision)
-        os.makedirs(onnx_model_dir, exist_ok=True)
-        return os.path.join(onnx_model_dir, "model.onnx")
-
-    @staticmethod
-    def _get_engine_path(
-        model_name: str,
-        engine_dir: str,
-        suffix: str = "",
-        transformer_precision: str = "bf16",
-    ) -> str:
-        return os.path.join(
-            engine_dir,
-            model_name
-            + suffix
-            + (f"_{transformer_precision}" if model_name == "transformer" else "")
-            + ".trt"
-            + trt.__version__
-            + ".plan",
-        )
-
-    @staticmethod
-    def _prepare_model_configs(
-        models: dict[str, torch.nn.Module],
-        engine_dir: str,
-        onnx_dir: str,
-        transformer_precision: str,
-    ) -> dict[str, dict[str, Any]]:
-        model_names = models.keys()
-        configs = {}
-        for model_name in model_names:
-            config: dict[str, Any] = {}
-            config["model_suffix"] = ""
-
-            config["onnx_path"] = TRTManager._get_onnx_path(
-                model_name=model_name,
-                onnx_dir=onnx_dir,
-                opt=False,
-                suffix=config["model_suffix"],
-                transformer_precision=transformer_precision,
-            )
-            config["onnx_opt_path"] = TRTManager._get_onnx_path(
-                model_name=model_name,
-                onnx_dir=onnx_dir,
-                suffix=config["model_suffix"],
-                transformer_precision=transformer_precision,
-            )
-            config["engine_path"] = TRTManager._get_engine_path(
-                model_name=model_name,
-                engine_dir=engine_dir,
-                suffix=config["model_suffix"],
-                transformer_precision=transformer_precision,
-            )
-
-            configs[model_name] = config
-
-        return configs
-
     def _get_exporters(
         self,
         models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
+        trt_static_batch: bool,
+        trt_static_shape: bool,
+        trt_enable_all_tactics: bool,
+        trt_timing_cache: str | None,
+        trt_native_instancenorm: bool,
+        trt_builder_optimization_level: int,
+        trt_precision_constraints: str,
     ) -> dict[str, Union[BaseMixin, BaseExporter]]:
         exporters = {}
         for model_name, model in models.items():
@@ -190,40 +122,24 @@ class TRTManager:
                 fp4=self.fp4,
                 t5_fp8=self.t5_fp8,
             )
-            config = config_cls(
+            trt_config = config_cls(
                 onnx_dir=onnx_dir,
                 engine_dir=engine_dir,
-                verbose=self.verbose,
+                trt_verbose=self.verbose,
                 precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
+                trt_static_batch=trt_static_batch,
+                trt_static_shape=trt_static_shape,
+                trt_enable_all_tactics=trt_enable_all_tactics,
+                trt_timing_cache=trt_timing_cache,
+                trt_native_instancenorm=trt_native_instancenorm,
+                trt_builder_optimization_level=trt_builder_optimization_level,
+                trt_precision_constraints=trt_precision_constraints,
             )
-            # if model_name == "transformer":
-            #     onnx_exporter = exporter_class(
-            #         model=model,
-            #         tf32=self.tf32,
-            #         bf16=self.bf16,
-            #         fp8=self.fp8,
-            #         fp4=self.fp4,
-            #         max_batch=self.max_batch,
-            #         verbose=self.verbose,
-            #     )
-            # elif model_name == "vae_encoder":
-            #     onnx_exporter = exporter_class(
-            #         model=model,
-            #         tf32=self.tf32,
-            #         bf16=False,
-            #         max_batch=self.max_batch,
-            #         verbose=self.verbose,
-            #     )
-            # else:
-            #     bf16 = True if self.fp8 or self.fp4 else self.bf16
-            #     onnx_exporter = exporter_class(
-            #         model=model,
-            #         tf32=self.tf32,
-            #         bf16=bf16,
-            #         max_batch=self.max_batch,
-            #         verbose=self.verbose,
-            #     )
-            exporters[model_name] = exporter_class(**vars(config), model=model, max_batch=self.max_batch)
+            exporters[model_name] = exporter_class(
+                trt_config=trt_config,
+                max_batch=self.max_batch,
+                model=model,
+            )
 
         if "transformer" in exporters and "t5" in exporters:
             exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
@@ -232,87 +148,37 @@ class TRTManager:
 
         return exporters
 
-    def _export_onnx(
-        self,
-        model_exporter: Union[BaseMixin, BaseExporter],
-        model_config: dict[str, Any],
-        opt_image_height: int,
-        opt_image_width: int,
-        onnx_opset: int,
-    ):
-        do_export_onnx = not os.path.exists(model_config["engine_path"]) and not os.path.exists(
-            model_config["onnx_opt_path"]
-        )
-        assert not do_export_onnx, "Onnx model should be provided, but not present at: {}".format(
-            model_config["onnx_opt_path"]
-        )
-
-        # model_exporter.model = model_exporter.model.to(self.device)
-
-        # if do_export_onnx:
-        #     model_exporter.export_onnx(
-        #         onnx_path=model_config["onnx_path"],
-        #         onnx_opt_path=model_config["onnx_opt_path"],
-        #         onnx_opset=onnx_opset,
-        #         opt_image_height=opt_image_height,
-        #         opt_image_width=opt_image_width,
-        #     )
-
-        model_exporter.model = model_exporter.model.to("cpu")
-        gc.collect()
-        torch.cuda.empty_cache()
-
     @staticmethod
     def _build_engine(
         model_exporter: BaseExporter,
-        model_config: dict[str, Any],
         opt_batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
-        static_batch: bool,
-        static_shape: bool,
-        optimization_level: int,
-        enable_all_tactics: bool,
-        timing_cache,
-        verbose: bool,
     ):
-        already_build = os.path.exists(model_config["engine_path"])
+        already_build = os.path.exists(model_exporter.trt_config.engine_path)
         if already_build:
             return
 
-        update_output_names = (
-            model_exporter.get_output_names() + model_exporter.extra_output_names
-            if model_exporter.extra_output_names
-            else None
-        )
-        tf32amp = model_exporter.tf32
-        bf16amp = (
-            False
-            if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed
-            else model_exporter.bf16
-        )
-        strongly_typed = (
-            True if model_exporter.fp8 or model_exporter.fp4 or model_exporter.build_strongly_typed else False
-        )
-
         model_exporter.build(
-            engine_path=model_config["engine_path"],
-            onnx_path=model_config["onnx_opt_path"],
-            strongly_typed=strongly_typed,
-            tf32=tf32amp,
-            bf16=bf16amp,
+            engine_path=model_exporter.trt_config.engine_path,
+            onnx_path=model_exporter.trt_config.onnx_path,
+            strongly_typed=model_exporter.trt_config.trt_build_strongly_typed,
+            tf32=model_exporter.trt_config.trt_tf32,
+            bf16=model_exporter.trt_config.trt_bf16,
+            fp8=model_exporter.trt_config.trt_fp8,
+            fp4=model_exporter.trt_config.trt_fp4,
             input_profile=model_exporter.get_input_profile(
                 batch_size=opt_batch_size,
                 image_height=opt_image_height,
                 image_width=opt_image_width,
-                static_batch=static_batch,
-                static_shape=static_shape,
+                static_batch=model_exporter.trt_config.trt_static_batch,
+                static_shape=model_exporter.trt_config.trt_static_shape,
             ),
-            enable_all_tactics=enable_all_tactics,
-            timing_cache=timing_cache,
-            update_output_names=update_output_names,
-            builder_optimization_level=optimization_level,
-            verbose=verbose,
+            enable_all_tactics=model_exporter.trt_config.trt_enable_all_tactics,
+            timing_cache=model_exporter.trt_config.trt_timing_cache,
+            update_output_names=model_exporter.trt_config.trt_update_output_names,
+            builder_optimization_level=model_exporter.trt_config.trt_builder_optimization_level,
+            verbose=model_exporter.trt_config.trt_verbose,
         )
 
         # Reclaim GPU memory from torch cache
@@ -327,64 +193,48 @@ class TRTManager:
         opt_image_height: int,
         opt_image_width: int,
         opt_batch_size=1,
-        onnx_opset=19,
-        optimization_level=3,
-        enable_all_tactics=False,
-        timing_cache=None,
+        trt_static_batch=True,
+        trt_static_shape=True,
+        trt_enable_all_tactics=False,
+        trt_timing_cache: str | None = None,
+        trt_native_instancenorm=True,
+        trt_builder_optimization_level=3,
+        trt_precision_constraints="none",
     ) -> dict[str, BaseEngine]:
         self._create_directories(
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
         )
 
-        model_configs = self._prepare_model_configs(
-            models=models,
-            engine_dir=engine_dir,
-            onnx_dir=onnx_dir,
-            transformer_precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
-        )
-
         exporters = self._get_exporters(
             models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
+            trt_static_batch=trt_static_batch,
+            trt_static_shape=trt_static_shape,
+            trt_enable_all_tactics=trt_enable_all_tactics,
+            trt_timing_cache=trt_timing_cache,
+            trt_native_instancenorm=trt_native_instancenorm,
+            trt_builder_optimization_level=trt_builder_optimization_level,
+            trt_precision_constraints=trt_precision_constraints,
         )
-
-        # Export models to ONNX
-        for model_name, model_exporter in exporters.items():
-            self._export_onnx(
-                model_exporter=model_exporter,
-                model_config=model_configs[model_name],
-                opt_image_height=opt_image_height,
-                opt_image_width=opt_image_width,
-                onnx_opset=onnx_opset,
-            )
 
         # Build TRT engines
         for model_name, model_exporter in exporters.items():
-            model_config = model_configs[model_name]
             self._build_engine(
                 model_exporter=model_exporter,
-                model_config=model_config,
                 opt_batch_size=opt_batch_size,
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
-                static_batch=self.static_batch,
-                static_shape=self.static_shape,
-                optimization_level=optimization_level,
-                enable_all_tactics=enable_all_tactics,
-                timing_cache=timing_cache,
-                verbose=self.verbose,
             )
 
         # load TRT engines
         engines = {}
         for model_name, model_exporter in exporters.items():
-            model_config = model_configs[model_name]
 
             engine_class = self.model_to_engine_class[model_name]
             engine = engine_class(
-                engine_path=model_config["engine_path"],
+                engine_path=model_exporter.trt_config.engine_path,
                 **model_exporter.get_mixin_params(),
             )
             engines[model_name] = engine
@@ -394,6 +244,8 @@ class TRTManager:
                 decoder=engines.pop("vae"),
                 encoder=engines.pop("vae_encoder", None),
             )
+        gc.collect()
+        torch.cuda.empty_cache()
         return engines
 
     @staticmethod
