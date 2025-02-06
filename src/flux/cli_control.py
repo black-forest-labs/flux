@@ -242,7 +242,7 @@ def main(
 
     # set lora scale
     if "lora" in name and lora_scale is not None:
-        assert not trt, "TRT does not support LORA yet"
+        assert not trt_bf16 or trt_fp8 or trt_fp4, "TRT does not support LORA yet"
         for _, module in model.named_modules():
             if hasattr(module, "set_scale"):
                 module.set_scale(lora_scale)
@@ -261,8 +261,6 @@ def main(
             fp4=trt_fp4,
             t5_fp8=trt_t5_fp8,
             device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -278,6 +276,8 @@ def main(
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             opt_image_height=height,
             opt_image_width=width,
+            trt_static_batch=kwargs.get("static_batch", True),
+            trt_static_shape=kwargs.get("static_shape", True),
         )
         torch.cuda.synchronize()
 
