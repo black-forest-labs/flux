@@ -175,7 +175,7 @@ def parse_img_mask_path(options: SamplingOptions | None) -> SamplingOptions | No
 def main(
     seed: int | None = None,
     prompt: str = "a white paper cup",
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu',
     num_steps: int = 50,
     loop: bool = False,
     guidance: float = 30.0,
