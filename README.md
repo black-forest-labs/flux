@@ -104,10 +104,10 @@ $ python -m flux.api --prompt="A beautiful beach" image show
 If you find the provided code or models useful for your research, consider citing them as:
 
 ```bib
-@misc{flux2023,
+@misc{flux2024,
     author={Black Forest Labs},
     title={FLUX},
-    year={2023},
+    year={2024},
     howpublished={\url{https://github.com/black-forest-labs/flux}},
 }
 ```
