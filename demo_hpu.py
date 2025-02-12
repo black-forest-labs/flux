@@ -159,6 +159,11 @@ def main(
         if opts.seed is None:
             opts.seed = rng.seed()
         print(f"Generating '{opts.prompt}' with seed {opts.seed}")
+
+        # Timing for HPU
+        if device == "hpu":
+            t0_hpu = time.perf_counter()
+
         t0 = time.perf_counter()
 
         if init_image is not None:
@@ -202,6 +207,10 @@ def main(
             x = ae.decode(x)
 
         t1 = time.perf_counter()
+
+        if device == "hpu":
+            t1_hpu = time.perf_counter()
+            st.write(f"HPU execution time: {t1_hpu - t0_hpu:.1f}s")
 
         fn = output_name.format(idx=idx)
         print(f"Done in {t1 - t0:.1f}s.")
