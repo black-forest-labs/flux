@@ -21,7 +21,7 @@ from typing import Any
 
 from tensorrt import __version__ as trt_version
 from flux.model import Flux
-from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
 @register_config(model_name="transformer", tf32=True, bf16=True, fp8=False, fp4=False)
@@ -50,7 +50,7 @@ class TransformerConfig(TRTBaseConfig):
     trt_build_strongly_typed: bool = True
 
     @classmethod
-    def build(
+    def from_model(
         cls,
         model: Flux,
         **kwargs,
@@ -78,12 +78,13 @@ class TransformerConfig(TRTBaseConfig):
             f"{self.model_name}_{self.precision}.trt{trt_version}.plan",
         )
 
+    def _get_latent_dim_(self, image_dim: int) -> int:
+        return 2 * ceil(image_dim / (2 * self.compression_factor))
+
     def __post_init__(self):
-        self.max_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
-        self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
-        self.onnx_path = self._get_onnx_path()
-        self.engine_path = self._get_engine_path()
-        assert os.path.isfile(self.onnx_path), "onnx_path do not exists: {}".format(self.onnx_path)
+        self.min_latent_shape = self._get_latent_dim_(self.min_image_shape)
+        self.max_latent_shape = self._get_latent_dim_(self.max_image_shape)
+        super().__post_init__()
 
     def get_minmax_dims(
         self,
@@ -96,8 +97,8 @@ class TransformerConfig(TRTBaseConfig):
         min_batch = batch_size if static_batch else self.min_batch
         max_batch = batch_size if static_batch else self.max_batch
 
-        latent_height = image_height // self.compression_factor
-        latent_width = image_width // self.compression_factor
+        latent_height = self._get_latent_dim_(image_height)
+        latent_width = self._get_latent_dim_(image_width)
         min_latent_height = latent_height if static_shape else self.min_latent_shape
         max_latent_height = latent_height if static_shape else self.max_latent_shape
         min_latent_width = latent_width if static_shape else self.min_latent_shape
@@ -126,10 +127,8 @@ class TransformerConfig(TRTBaseConfig):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
+        latent_height = self._get_latent_dim_(image_height)
+        latent_width = self._get_latent_dim_(image_width)
 
         assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape

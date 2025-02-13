@@ -13,12 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
+from typing import Any
 
 from flux.modules.autoencoder import Decoder, Encoder
-from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
-from flux.trt.mixin import VAEMixin
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
 @register_config(model_name="vae", tf32=True, bf16=True, fp8=False, fp4=False)
@@ -26,6 +26,15 @@ from flux.trt.mixin import VAEMixin
 @register_config(model_name="vae", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
 class VAEDecoderConfig(TRTBaseConfig):
+    z_channels: int | None = None
+    scale_factor: float | None = None
+    shift_factor: float | None = None
+
+    compression_factor: int = 8
+    min_image_shape: int = 768
+    max_image_shape: int = 1344
+    min_latent_shape: int = field(init=False)
+    max_latent_shape: int = field(init=False)
     model_name: str = "vae"
     trt_tf32: bool = True
     trt_bf16: bool = True
@@ -33,28 +42,29 @@ class VAEDecoderConfig(TRTBaseConfig):
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = False
 
-
-class VAEDecoderExporter(VAEMixin, BaseExporter):
-    def __init__(
-        self,
+    @classmethod
+    def from_model(
+        cls,
         model: Decoder,
-        trt_config: TRTBaseConfig,
-        max_batch=4,
-        compression_factor=8,
+        **kwargs,
     ):
-        super().__init__(
+        return cls(
             z_channels=model.params.z_channels,
-            compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            trt_config=trt_config,
-            max_batch=max_batch,
+            **kwargs,
         )
 
-        self.min_image_shape = 768
-        self.max_image_shape = 1344
-        self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
-        self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
+    def _get_latent_dim_(self, image_dim: int) -> int:
+        return 2 * ceil(image_dim / (2 * self.compression_factor))
+
+    def _get_img_dim_(self, latent_dim: int) -> int:
+        return latent_dim * self.compression_factor
+
+    def __post_init__(self):
+        self.min_latent_shape = self._get_latent_dim_(self.min_image_shape)
+        self.max_latent_shape = self._get_latent_dim_(self.max_image_shape)
+        super().__post_init__()
 
     def check_dims(
         self,
@@ -66,10 +76,8 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
+        latent_height = self._get_latent_dim_(image_height)
+        latent_width = self._get_latent_dim_(image_width)
 
         assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape
@@ -86,10 +94,9 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
         min_batch = batch_size if static_batch else self.min_batch
         max_batch = batch_size if static_batch else self.max_batch
 
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
+        latent_height = self._get_latent_dim_(image_height)
+        latent_width = self._get_latent_dim_(image_width)
+
         min_latent_height = latent_height if static_shape else self.min_latent_shape
         max_latent_height = latent_height if static_shape else self.max_latent_shape
         min_latent_width = latent_width if static_shape else self.min_latent_shape
@@ -141,12 +148,30 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
             ]
         }
 
+    def get_engine_params(self) -> dict[str, Any]:
+        return {
+            "z_channels": self.z_channels,
+            "compression_factor": self.compression_factor,
+            "scale_factor": self.scale_factor,
+            "shift_factor": self.shift_factor,
+        }
+
 
 @register_config(model_name="vae_encoder", tf32=True, bf16=True, fp8=False, fp4=False)
 @register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=True, fp4=False)
 @register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
 class VAEEncoderConfig(TRTBaseConfig):
+    z_channels: int | None = None
+    scale_factor: float | None = None
+    shift_factor: float | None = None
+
+    compression_factor: int = 8
+    min_image_shape: int = 768
+    max_image_shape: int = 1344
+    min_latent_shape: int = field(init=False)
+    max_latent_shape: int = field(init=False)
+
     model_name: str = "vae_encoder"
     trt_tf32: bool = True
     trt_bf16: bool = True
@@ -154,28 +179,29 @@ class VAEEncoderConfig(TRTBaseConfig):
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = False
 
-
-class VAEEncoderExporter(VAEMixin, BaseExporter):
-    def __init__(
-        self,
+    @classmethod
+    def from_model(
+        cls,
         model: Encoder,
-        trt_config: TRTBaseConfig,
-        max_batch=4,
-        compression_factor=8,
+        **kwargs,
     ):
-        super().__init__(
+        return cls(
             z_channels=model.params.z_channels,
-            compression_factor=compression_factor,
             scale_factor=model.params.scale_factor,
             shift_factor=model.params.shift_factor,
-            trt_config=trt_config,
-            max_batch=max_batch,
+            **kwargs,
         )
 
-        self.min_image_shape = 768
-        self.max_image_shape = 1344
-        self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
-        self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
+    def _get_latent_dim_(self, image_dim: int) -> int:
+        return 2 * ceil(image_dim / (2 * self.compression_factor))
+
+    def _get_img_dim_(self, latent_dim: int) -> int:
+        return latent_dim * self.compression_factor
+
+    def __post_init__(self):
+        self.min_latent_shape = self._get_latent_dim_(self.min_image_shape)
+        self.max_latent_shape = self._get_latent_dim_(self.max_image_shape)
+        super().__post_init__()
 
     def check_dims(
         self,
@@ -187,10 +213,8 @@ class VAEEncoderExporter(VAEMixin, BaseExporter):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
         assert image_height % self.compression_factor == 0 or image_width % self.compression_factor == 0
 
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
+        latent_height = self._get_latent_dim_(image_height)
+        latent_width = self._get_latent_dim_(image_width)
 
         assert latent_height >= self.min_latent_shape and latent_height <= self.max_latent_shape
         assert latent_width >= self.min_latent_shape and latent_width <= self.max_latent_shape

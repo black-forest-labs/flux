@@ -17,7 +17,7 @@
 from dataclasses import dataclass
 from typing import Any
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
 @register_config(model_name="clip", tf32=True, bf16=True, fp8=False, fp4=False)
@@ -35,7 +35,7 @@ class ClipConfig(TRTBaseConfig):
     trt_build_strongly_typed: bool = False
 
     @classmethod
-    def build(
+    def from_model(
         cls,
         model: HFEmbedder,
         **kwargs,

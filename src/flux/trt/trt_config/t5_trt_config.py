@@ -17,7 +17,7 @@
 from dataclasses import dataclass
 from typing import Any
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
 @dataclass
@@ -26,7 +26,7 @@ class T5BaseConfig(TRTBaseConfig):
     hidden_size: int | None = None
 
     @classmethod
-    def build(
+    def from_model(
         cls,
         model: HFEmbedder,
         **kwargs,

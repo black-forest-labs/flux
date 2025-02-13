@@ -14,20 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config, get_config
-from flux.trt.exporter.clip_exporter import CLIPExporter
-from flux.trt.exporter.t5_exporter import T5Exporter
-from flux.trt.exporter.transformer_exporter import TransformerExporter
-from flux.trt.exporter.vae_exporter import VAEDecoderExporter, VAEEncoderExporter
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config, get_config
+from flux.trt.trt_config.clip_trt_config import ClipConfig
+from flux.trt.trt_config.t5_trt_config import T5Config
+from flux.trt.trt_config.transformer_trt_config import TransformerConfig
+from flux.trt.trt_config.vae_trt_config import VAEDecoderConfig, VAEEncoderConfig
 
 __all__ = [
     "register_config",
     "get_config",
-    "BaseExporter",
     "TRTBaseConfig",
-    "CLIPExporter",
-    "T5Exporter",
-    "TransformerExporter",
-    "VAEDecoderExporter",
-    "VAEEncoderExporter",
+    "ClipConfig",
+    "T5Config",
+    "TransformerConfig",
+    "VAEDecoderConfig",
+    "VAEEncoderConfig",
 ]
