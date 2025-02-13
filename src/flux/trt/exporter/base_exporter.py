@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tensorrt import __version__ as trt_version
-from colored import fore, style
 
 registry = {}
 
@@ -38,12 +37,34 @@ class TRTBaseConfig:
     model_name: str
     onnx_path: str = field(init=False)
     engine_path: str = field(init=False)
+    min_batch: int = 1
+    max_batch: int = 4
     trt_update_output_names: list[str] | None = None
     trt_enable_all_tactics: bool = False
     trt_timing_cache: str | None = None
     trt_native_instancenorm: bool = True
     trt_builder_optimization_level: int = 3
     trt_precision_constraints: str = "none"
+
+    @classmethod
+    @abstractmethod
+    def build(cls, *args, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
+    def get_input_profile(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+        static_batch: bool,
+        static_shape: bool,
+    ) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def check_dims(self, *args, **kwargs) -> None | tuple[int, int]:
+        pass
 
     def __post_init__(self):
         self.onnx_path = self._get_onnx_path()
@@ -110,83 +131,3 @@ class BaseExporter(ABC):
     @abstractmethod
     def check_dims(self, *args, **kwargs) -> None | tuple[int, int]:
         pass
-
-    @staticmethod
-    def build(
-        engine_path: str,
-        onnx_path: str,
-        strongly_typed=False,
-        tf32=True,
-        bf16=False,
-        fp8=False,
-        fp4=False,
-        input_profile: dict[str, Any] | None = None,
-        update_output_names: list[str] | None = None,
-        enable_refit=False,
-        enable_all_tactics=False,
-        timing_cache=None,
-        native_instancenorm=True,
-        builder_optimization_level=3,
-        precision_constraints="none",
-        verbose=False,
-    ):
-        print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
-
-        # Base command
-        build_command = [f"polygraphy convert {onnx_path} --convert-to trt --output {engine_path}"]
-
-        # Precision flags
-        build_args = [
-            "--bf16" if bf16 else "",
-            "--tf32" if tf32 else "",
-            "--fp8" if fp8 else "",
-            "--fp4" if fp4 else "",
-            "--strongly-typed" if strongly_typed else "",
-        ]
-
-        # Additional arguments
-        build_args.extend(
-            [
-                "--refittable" if enable_refit else "",
-                "--tactic-sources" if not enable_all_tactics else "",
-                "--onnx-flags native_instancenorm" if native_instancenorm else "",
-                f"--builder-optimization-level {builder_optimization_level}",
-                f"--precision-constraints {precision_constraints}",
-            ]
-        )
-
-        # Timing cache
-        if timing_cache:
-            build_args.extend([f"--load-timing-cache {timing_cache}", f"--save-timing-cache {timing_cache}"])
-
-        # Verbosity setting
-        verbosity = "extra_verbose" if verbose else "error"
-        build_args.append(f"--verbosity {verbosity}")
-
-        # Output names
-        if update_output_names:
-            print(f"Updating network outputs to {update_output_names}")
-            build_args.append(f"--trt-outputs {' '.join(update_output_names)}")
-
-        # Input profiles
-        if input_profile:
-            profile_args = defaultdict(str)
-            for name, dims in input_profile.items():
-                assert len(dims) == 3
-                profile_args["--trt-min-shapes"] += f"{name}:{str(list(dims[0])).replace(' ', '')} "
-                profile_args["--trt-opt-shapes"] += f"{name}:{str(list(dims[1])).replace(' ', '')} "
-                profile_args["--trt-max-shapes"] += f"{name}:{str(list(dims[2])).replace(' ', '')} "
-
-            build_args.extend(f"{k} {v}" for k, v in profile_args.items())
-
-        # Filter out empty strings and join command
-        build_args = [arg for arg in build_args if arg]
-        final_command = " \\\n".join(build_command + build_args)
-
-        # Execute command with improved error handling
-        try:
-            print(f"Engine build command:{fore('yellow')}\n{final_command}\n{style('reset')}")
-            subprocess.run(final_command, check=True, shell=True)
-        except subprocess.CalledProcessError as exc:
-            error_msg = f"Failed to build TensorRT engine. Error details:\nCommand: {exc.cmd}\n"
-            raise RuntimeError(error_msg) from exc
