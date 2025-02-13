@@ -18,25 +18,17 @@ import torch
 from cuda import cudart
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
-from flux.trt.mixin import VAEMixin
+from flux.trt.trt_config import VAEDecoderConfig, VAEEncoderConfig
 
 
-class VAEDecoder(VAEMixin, Engine):
+class VAEDecoder(Engine):
     def __init__(
         self,
-        z_channels: int,
-        compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
-        engine_path: str,
+        trt_config: VAEDecoderConfig,
         stream: cudart.cudaStream_t,
     ):
         super().__init__(
-            z_channels=z_channels,
-            compression_factor=compression_factor,
-            scale_factor=scale_factor,
-            shift_factor=shift_factor,
-            engine_path=engine_path,
+            trt_config=trt_config,
             stream=stream,
         )
 
@@ -52,38 +44,33 @@ class VAEDecoder(VAEMixin, Engine):
         self.allocate_buffers(shape_dict=shape_dict, device=self.device)
 
         z = z.to(dtype=self.tensors["latent"].dtype)
-        z = (z / self.scale_factor) + self.shift_factor
+        z = (z / self.trt_config.scale_factor) + self.trt_config.shift_factor
         feed_dict = {"latent": z}
         images = self.infer(feed_dict=feed_dict)["images"].clone()
         return images
 
-    def get_shape_dict(self, batch_size: int, latent_height: int, latent_width: int) -> dict[str, tuple]:
-        image_height, image_width = self.get_img_dim(
-            latent_height=latent_height,
-            latent_width=latent_width,
-        )
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        latent_height: int,
+        latent_width: int,
+    ) -> dict[str, tuple]:
+        image_height = self.trt_config._get_img_dim_(latent_height)
+        image_width = self.trt_config._get_img_dim_(latent_width)
         return {
-            "latent": (batch_size, self.z_channels, latent_height, latent_width),
+            "latent": (batch_size, self.trt_config.z_channels, latent_height, latent_width),
             "images": (batch_size, 3, image_height, image_width),
         }
 
 
-class VAEEncoder(VAEMixin, Engine):
+class VAEEncoder(Engine):
     def __init__(
         self,
-        z_channels: int,
-        compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
-        engine_path: str,
+        trt_config: VAEEncoderConfig,
         stream: cudart.cudaStream_t,
     ):
         super().__init__(
-            z_channels=z_channels,
-            compression_factor=compression_factor,
-            scale_factor=scale_factor,
-            shift_factor=shift_factor,
-            engine_path=engine_path,
+            trt_config=trt_config,
             stream=stream,
         )
 
@@ -100,17 +87,21 @@ class VAEEncoder(VAEMixin, Engine):
 
         feed_dict = {"images": x}
         latent = self.infer(feed_dict=feed_dict)["latent"].clone()
-        latent = self.scale_factor * (latent - self.shift_factor)
+        latent = self.trt_config.scale_factor * (latent - self.trt_config.shift_factor)
         return latent
 
-    def get_shape_dict(self, batch_size: int, image_height: int, image_width: int) -> dict[str, tuple]:
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
+    def get_shape_dict(
+        self,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
+    ) -> dict[str, tuple]:
+        latent_height = self.trt_config._get_latent_dim_(image_height)
+        latent_width = self.trt_config._get_latent_dim_(image_width)
+
         return {
             "images": (batch_size, 3, image_height, image_width),
-            "latent": (batch_size, self.z_channels, latent_height, latent_width),
+            "latent": (batch_size, self.trt_config.z_channels, latent_height, latent_width),
         }
 
 
@@ -163,7 +154,7 @@ class VAEEngine(BaseEngine):
 
     def activate(
         self,
-        device: str,
+        device: str | torch.device,
         device_memory: int | None = None,
     ):
         self.decoder.activate(device=device, device_memory=device_memory)

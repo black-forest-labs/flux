@@ -15,17 +15,16 @@
 # limitations under the License.
 
 import gc
-import subprocess
 from abc import ABC, abstractmethod
-from collections import OrderedDict, defaultdict
-from typing import Any
+from collections import OrderedDict
 
 import tensorrt as trt
 import torch
-from colored import fore, style
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
+
+from flux.trt.trt_config import TRTBaseConfig
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -60,7 +59,7 @@ class BaseEngine(ABC):
         pass
 
     @abstractmethod
-    def to(self, device: str) -> "BaseEngine":
+    def to(self, device: str | torch.device) -> "BaseEngine":
         pass
 
     @abstractmethod
@@ -75,94 +74,14 @@ class BaseEngine(ABC):
     ):
         pass
 
-    @staticmethod
-    def build(
-        engine_path: str,
-        onnx_path: str,
-        strongly_typed=False,
-        tf32=True,
-        bf16=False,
-        fp8=False,
-        fp4=False,
-        input_profile: dict[str, Any] | None = None,
-        update_output_names: list[str] | None = None,
-        enable_refit=False,
-        enable_all_tactics=False,
-        timing_cache=None,
-        native_instancenorm=True,
-        builder_optimization_level=3,
-        precision_constraints="none",
-        verbose=False,
-    ):
-        print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
-
-        # Base command
-        build_command = [f"polygraphy convert {onnx_path} --convert-to trt --output {engine_path}"]
-
-        # Precision flags
-        build_args = [
-            "--bf16" if bf16 else "",
-            "--tf32" if tf32 else "",
-            "--fp8" if fp8 else "",
-            "--fp4" if fp4 else "",
-            "--strongly-typed" if strongly_typed else "",
-        ]
-
-        # Additional arguments
-        build_args.extend(
-            [
-                "--refittable" if enable_refit else "",
-                "--tactic-sources" if not enable_all_tactics else "",
-                "--onnx-flags native_instancenorm" if native_instancenorm else "",
-                f"--builder-optimization-level {builder_optimization_level}",
-                f"--precision-constraints {precision_constraints}",
-            ]
-        )
-
-        # Timing cache
-        if timing_cache:
-            build_args.extend([f"--load-timing-cache {timing_cache}", f"--save-timing-cache {timing_cache}"])
-
-        # Verbosity setting
-        verbosity = "extra_verbose" if verbose else "error"
-        build_args.append(f"--verbosity {verbosity}")
-
-        # Output names
-        if update_output_names:
-            print(f"Updating network outputs to {update_output_names}")
-            build_args.append(f"--trt-outputs {' '.join(update_output_names)}")
-
-        # Input profiles
-        if input_profile:
-            profile_args = defaultdict(str)
-            for name, dims in input_profile.items():
-                assert len(dims) == 3
-                profile_args["--trt-min-shapes"] += f"{name}:{str(list(dims[0])).replace(' ', '')} "
-                profile_args["--trt-opt-shapes"] += f"{name}:{str(list(dims[1])).replace(' ', '')} "
-                profile_args["--trt-max-shapes"] += f"{name}:{str(list(dims[2])).replace(' ', '')} "
-
-            build_args.extend(f"{k} {v}" for k, v in profile_args.items())
-
-        # Filter out empty strings and join command
-        build_args = [arg for arg in build_args if arg]
-        final_command = " \\\n".join(build_command + build_args)
-
-        # Execute command with improved error handling
-        try:
-            print(f"Engine build command:{fore('yellow')}\n{final_command}\n{style('reset')}")
-            subprocess.run(final_command, check=True, shell=True)
-        except subprocess.CalledProcessError as exc:
-            error_msg = f"Failed to build TensorRT engine. Error details:\nCommand: {exc.cmd}\n"
-            raise RuntimeError(error_msg) from exc
-
 
 class Engine(BaseEngine):
     def __init__(
         self,
-        engine_path: str,
+        trt_config: TRTBaseConfig,
         stream: cudart.cudaStream_t,
     ):
-        self.engine_path = engine_path
+        self.trt_config = trt_config
         self.stream = stream
         self.engine: trt.ICudaEngine | None = None
         self.context = None
@@ -197,25 +116,25 @@ class Engine(BaseEngine):
 
     def load(self):
         if self.engine is not None:
-            print(f"[W]: Engine {self.engine_path} already loaded, skip reloading")
+            print(f"[W]: Engine {self.trt_config.engine_path} already loaded, skip reloading")
             return
 
         if not hasattr(self, "engine_bytes_cpu") or self.engine_bytes_cpu is None:
             # keep a cpu copy of the engine to reduce reloading time.
-            print(f"Loading TensorRT engine to cpu bytes: {self.engine_path}")
-            self.engine_bytes_cpu = bytes_from_path(self.engine_path)
+            print(f"Loading TensorRT engine to cpu bytes: {self.trt_config.engine_path}")
+            self.engine_bytes_cpu = bytes_from_path(self.trt_config.engine_path)
 
-        print(f"Loading TensorRT engine: {self.engine_path}")
+        print(f"Loading TensorRT engine: {self.trt_config.engine_path}")
         self.engine = engine_from_bytes(self.engine_bytes_cpu)
 
     def unload(self):
         if self.engine is not None:
-            print(f"Unloading TensorRT engine: {self.engine_path}")
+            print(f"Unloading TensorRT engine: {self.trt_config.engine_path}")
             del self.engine
             self.engine = None
             gc.collect()
         else:
-            print(f"[W]: Unload an unloaded engine {self.engine_path}, skip unloading")
+            print(f"[W]: Unload an unloaded engine {self.trt_config.engine_path}, skip unloading")
 
     def activate(
         self,

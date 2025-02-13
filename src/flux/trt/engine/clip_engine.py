@@ -19,26 +19,22 @@ from cuda import cudart
 from transformers import CLIPTokenizer
 
 from flux.trt.engine import Engine
-from flux.trt.mixin import CLIPMixin
+from flux.trt.trt_config import ClipConfig
 
 
-class CLIPEngine(CLIPMixin, Engine):
+class CLIPEngine(Engine):
     def __init__(
         self,
-        text_maxlen: int,
-        hidden_size: int,
-        engine_path: str,
+        trt_config: ClipConfig,
         stream: cudart.cudaStream_t,
     ):
         super().__init__(
-            text_maxlen=text_maxlen,
-            hidden_size=hidden_size,
-            engine_path=engine_path,
+            trt_config=trt_config,
             stream=stream,
         )
         self.tokenizer = CLIPTokenizer.from_pretrained(
             "openai/clip-vit-large-patch14",
-            max_length=self.text_maxlen,
+            max_length=self.trt_config.text_maxlen,
         )
 
     def __call__(
@@ -51,7 +47,7 @@ class CLIPEngine(CLIPMixin, Engine):
             feed_dict = self.tokenizer(
                 prompt,
                 truncation=True,
-                max_length=self.text_maxlen,
+                max_length=self.trt_config.text_maxlen,
                 return_length=False,
                 return_overflowing_tokens=False,
                 padding="max_length",
@@ -68,8 +64,8 @@ class CLIPEngine(CLIPMixin, Engine):
         batch_size: int,
     ) -> dict[str, tuple]:
         return {
-            "input_ids": (batch_size, self.text_maxlen),
-            "pooled_embeddings": (batch_size, self.hidden_size),
+            "input_ids": (batch_size, self.trt_config.text_maxlen),
+            "pooled_embeddings": (batch_size, self.trt_config.hidden_size),
             # Onnx model coming from HF has also this input
-            "text_embeddings": (batch_size, self.text_maxlen, self.hidden_size),
+            "text_embeddings": (batch_size, self.trt_config.text_maxlen, self.trt_config.hidden_size),
         }
