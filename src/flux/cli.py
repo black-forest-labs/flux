@@ -184,42 +184,30 @@ def main(
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
-    if trt:
-        # offload to CPU to save memory
-        ae = ae.cpu()
-        model = model.cpu()
-        clip = clip.cpu()
-        t5 = t5.cpu()
-
-        torch.cuda.empty_cache()
-
+    if trt_bf16 or trt_fp8 or trt_fp4:
         trt_ctx_manager = TRTManager(
-            bf16=True,
+            bf16=trt_bf16,
+            fp8=trt_fp8,
+            fp4=trt_fp4,
+            t5_fp8=trt_t5_fp8,
             device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
         )
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
-                "clip": clip,
-                "transformer": model,
-                "t5": t5,
-                "vae": ae.decoder,
+                "clip": clip.cpu(),
+                "transformer": model.cpu(),
+                "t5": t5.cpu(),
+                "vae": ae.decoder.cpu(),
             },
-            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
-            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            engine_dir=trt_engine_dir,
+            onnx_dir=trt_onnx_dir,
             opt_image_height=height,
             opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            trt_static_batch=trt_static_batch,
+            trt_static_shape=trt_static_shape,
         )
-
         torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():

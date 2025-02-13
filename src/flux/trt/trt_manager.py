@@ -228,12 +228,16 @@ class TRTManager:
                 opt_image_width=opt_image_width,
             )
 
+        gc.collect()
+        torch.cuda.empty_cache()
+        self.init_runtime()
         # load TRT engines
         engines = {}
         for model_name, model_exporter in exporters.items():
             engine_class = self.model_to_engine_class[model_name]
             engine = engine_class(
                 engine_path=model_exporter.trt_config.engine_path,
+                stream=self.stream,
                 **model_exporter.get_mixin_params(),
             )
             engines[model_name] = engine
@@ -259,6 +263,7 @@ class TRTManager:
         return max_device_memory
 
     def init_runtime(self):
+        print("init TRT runtime")
         self.runtime = trt.Runtime(TRT_LOGGER)
         enter_fn = type(self.runtime).__enter__
         enter_fn(self.runtime)
