@@ -15,50 +15,26 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-
+from typing import Any
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
-from flux.trt.mixin import T5Mixin
+from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
 
 
-@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
-class T5Config(TRTBaseConfig):
-    model_name: str = "t5"
-    trt_tf32: bool = True
-    trt_bf16: bool = False
-    trt_fp8: bool = False
-    trt_fp4: bool = False
-    trt_build_strongly_typed: bool = True
+class T5BaseConfig(TRTBaseConfig):
+    text_maxlen: int | None = None
+    hidden_size: int | None = None
 
-
-@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False, t5_fp8=True)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False, t5_fp8=True)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True, t5_fp8=True)
-@dataclass
-class T5Fp8Config(TRTBaseConfig):
-    model_name: str = "t5"
-    trt_tf32: bool = False
-    trt_bf16: bool = True
-    trt_fp8: bool = True
-    trt_fp4: bool = False
-    trt_build_strongly_typed: bool = False
-
-
-class T5Exporter(T5Mixin, BaseExporter):
-    def __init__(
-        self,
+    @classmethod
+    def build(
+        cls,
         model: HFEmbedder,
-        trt_config: TRTBaseConfig,
-        max_batch=4,
+        **kwargs,
     ):
-        super().__init__(
+        return cls(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            trt_config=trt_config,
-            max_batch=max_batch,
+            **kwargs,
         )
 
     def check_dims(
@@ -86,3 +62,37 @@ class T5Exporter(T5Mixin, BaseExporter):
                 (max_batch, self.text_maxlen),
             ]
         }
+
+    def get_engine_params(self) -> dict[str, Any]:
+        """helper class that return the parameters used for construction"""
+        return {
+            "text_maxlen": self.text_maxlen,
+            "hidden_size": self.hidden_size,
+            "engine_path": self.engine_path,
+        }
+
+
+@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class T5Config(T5BaseConfig):
+    model_name: str = "t5"
+    trt_tf32: bool = True
+    trt_bf16: bool = False
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = True
+
+
+@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False, t5_fp8=True)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False, t5_fp8=True)
+@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True, t5_fp8=True)
+@dataclass
+class T5Fp8Config(T5BaseConfig):
+    model_name: str = "t5"
+    trt_tf32: bool = False
+    trt_bf16: bool = True
+    trt_fp8: bool = True
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
