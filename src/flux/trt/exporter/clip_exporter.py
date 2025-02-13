@@ -17,8 +17,7 @@
 from dataclasses import dataclass
 
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
-from flux.trt.mixin import CLIPMixin
+from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
 
 
 @register_config(model_name="clip", tf32=True, bf16=True, fp8=False, fp4=False)
@@ -26,6 +25,8 @@ from flux.trt.mixin import CLIPMixin
 @register_config(model_name="clip", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
 class ClipConfig(TRTBaseConfig):
+    text_maxlen: int | None = None
+    hidden_size: int | None = None
     model_name: str = "clip"
     trt_tf32: bool = True
     trt_bf16: bool = True
@@ -33,19 +34,16 @@ class ClipConfig(TRTBaseConfig):
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = False
 
-
-class CLIPExporter(CLIPMixin, BaseExporter):
-    def __init__(
-        self,
+    @classmethod
+    def build(
+        cls,
         model: HFEmbedder,
-        trt_config: TRTBaseConfig,
-        max_batch=4,
+        **kwargs,
     ):
-        super().__init__(
+        return cls(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            trt_config=trt_config,
-            max_batch=max_batch,
+            **kwargs,
         )
 
     def check_dims(
