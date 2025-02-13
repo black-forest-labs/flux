@@ -298,7 +298,7 @@ def main(
         else:
             opts = None
 
-    if trt:
+    if trt_bf16 or trt_fp8 or trt_fp4:
         trt_ctx_manager.stop_runtime()
 
 
