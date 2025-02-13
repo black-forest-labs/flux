@@ -149,7 +149,7 @@ class VAEDecoderExporter(VAEMixin, BaseExporter):
 class VAEEncoderConfig(TRTBaseConfig):
     model_name: str = "vae_encoder"
     trt_tf32: bool = True
-    trt_bf16: bool = False
+    trt_bf16: bool = True
     trt_fp8: bool = False
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = False
