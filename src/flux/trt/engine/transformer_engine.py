@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+from cuda import cudart
 
 from flux.trt.engine import Engine
 from flux.trt.mixin import TransformerMixin
@@ -53,6 +54,7 @@ class TransformerEngine(TransformerMixin, Engine):
         compression_factor: int,
         text_maxlen: int,
         engine_path: str,
+        stream: cudart.cudaStream_t,
     ):
         super().__init__(
             guidance_embed=guidance_embed,
@@ -63,6 +65,7 @@ class TransformerEngine(TransformerMixin, Engine):
             compression_factor=compression_factor,
             text_maxlen=text_maxlen,
             engine_path=engine_path,
+            stream=stream,
         )
 
     @property

@@ -263,7 +263,7 @@ class TRTManager:
         return max_device_memory
 
     def init_runtime(self):
-        print("init TRT runtime")
+        print("[I] Init TRT runtime")
         self.runtime = trt.Runtime(TRT_LOGGER)
         enter_fn = type(self.runtime).__enter__
         enter_fn(self.runtime)
@@ -274,3 +274,4 @@ class TRTManager:
         exit_fn(self.runtime, *sys.exc_info())
         cudart.cudaStreamDestroy(self.stream)
         del self.stream
+        print("[I] Stop TRT runtime")

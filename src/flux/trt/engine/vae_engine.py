@@ -29,6 +29,7 @@ class VAEDecoder(VAEMixin, Engine):
         scale_factor: float,
         shift_factor: float,
         engine_path: str,
+        stream: cudart.cudaStream_t,
     ):
         super().__init__(
             z_channels=z_channels,
@@ -36,6 +37,7 @@ class VAEDecoder(VAEMixin, Engine):
             scale_factor=scale_factor,
             shift_factor=shift_factor,
             engine_path=engine_path,
+            stream=stream,
         )
 
     def __call__(
@@ -74,6 +76,7 @@ class VAEEncoder(VAEMixin, Engine):
         scale_factor: float,
         shift_factor: float,
         engine_path: str,
+        stream: cudart.cudaStream_t,
     ):
         super().__init__(
             z_channels=z_channels,
@@ -81,6 +84,7 @@ class VAEEncoder(VAEMixin, Engine):
             scale_factor=scale_factor,
             shift_factor=shift_factor,
             engine_path=engine_path,
+            stream=stream,
         )
 
     def __call__(
@@ -151,11 +155,6 @@ class VAEEngine(BaseEngine):
 
         self.activate(device=device, device_memory=self.decoder.shared_device_memory)
         return self
-
-    def set_stream(self, stream):
-        self.decoder.set_stream(stream)
-        if self.encoder is not None:
-            self.encoder.set_stream(stream)
 
     def load(self):
         self.decoder.load()

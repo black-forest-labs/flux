@@ -61,10 +61,6 @@ class BaseEngine(ABC):
         pass
 
     @abstractmethod
-    def set_stream(self, stream):
-        pass
-
-    @abstractmethod
     def load(self):
         pass
 
@@ -81,9 +77,10 @@ class Engine(BaseEngine):
     def __init__(
         self,
         engine_path: str,
+        stream: cudart.cudaStream_t,
     ):
         self.engine_path = engine_path
-        self.stream = None
+        self.stream = stream
         self.engine: trt.ICudaEngine | None = None
         self.context = None
         self.tensors = OrderedDict()
@@ -114,9 +111,6 @@ class Engine(BaseEngine):
         self.load()
         self.activate(device=device)
         return self
-
-    def set_stream(self, stream):
-        self.stream = stream
 
     def load(self):
         if self.engine is not None:

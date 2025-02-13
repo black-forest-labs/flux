@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+from cuda import cudart
 from transformers import CLIPTokenizer
 
 from flux.trt.engine import Engine
@@ -27,11 +28,13 @@ class CLIPEngine(CLIPMixin, Engine):
         text_maxlen: int,
         hidden_size: int,
         engine_path: str,
+        stream: cudart.cudaStream_t,
     ):
         super().__init__(
             text_maxlen=text_maxlen,
             hidden_size=hidden_size,
             engine_path=engine_path,
+            stream=stream,
         )
         self.tokenizer = CLIPTokenizer.from_pretrained(
             "openai/clip-vit-large-patch14",
