@@ -15,11 +15,14 @@
 # limitations under the License.
 
 import gc
+import subprocess
 from abc import ABC, abstractmethod
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from typing import Any
 
 import tensorrt as trt
 import torch
+from colored import fore, style
 from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
@@ -71,6 +74,86 @@ class BaseEngine(ABC):
         device_memory: int | None = None,
     ):
         pass
+
+    @staticmethod
+    def build(
+        engine_path: str,
+        onnx_path: str,
+        strongly_typed=False,
+        tf32=True,
+        bf16=False,
+        fp8=False,
+        fp4=False,
+        input_profile: dict[str, Any] | None = None,
+        update_output_names: list[str] | None = None,
+        enable_refit=False,
+        enable_all_tactics=False,
+        timing_cache=None,
+        native_instancenorm=True,
+        builder_optimization_level=3,
+        precision_constraints="none",
+        verbose=False,
+    ):
+        print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
+
+        # Base command
+        build_command = [f"polygraphy convert {onnx_path} --convert-to trt --output {engine_path}"]
+
+        # Precision flags
+        build_args = [
+            "--bf16" if bf16 else "",
+            "--tf32" if tf32 else "",
+            "--fp8" if fp8 else "",
+            "--fp4" if fp4 else "",
+            "--strongly-typed" if strongly_typed else "",
+        ]
+
+        # Additional arguments
+        build_args.extend(
+            [
+                "--refittable" if enable_refit else "",
+                "--tactic-sources" if not enable_all_tactics else "",
+                "--onnx-flags native_instancenorm" if native_instancenorm else "",
+                f"--builder-optimization-level {builder_optimization_level}",
+                f"--precision-constraints {precision_constraints}",
+            ]
+        )
+
+        # Timing cache
+        if timing_cache:
+            build_args.extend([f"--load-timing-cache {timing_cache}", f"--save-timing-cache {timing_cache}"])
+
+        # Verbosity setting
+        verbosity = "extra_verbose" if verbose else "error"
+        build_args.append(f"--verbosity {verbosity}")
+
+        # Output names
+        if update_output_names:
+            print(f"Updating network outputs to {update_output_names}")
+            build_args.append(f"--trt-outputs {' '.join(update_output_names)}")
+
+        # Input profiles
+        if input_profile:
+            profile_args = defaultdict(str)
+            for name, dims in input_profile.items():
+                assert len(dims) == 3
+                profile_args["--trt-min-shapes"] += f"{name}:{str(list(dims[0])).replace(' ', '')} "
+                profile_args["--trt-opt-shapes"] += f"{name}:{str(list(dims[1])).replace(' ', '')} "
+                profile_args["--trt-max-shapes"] += f"{name}:{str(list(dims[2])).replace(' ', '')} "
+
+            build_args.extend(f"{k} {v}" for k, v in profile_args.items())
+
+        # Filter out empty strings and join command
+        build_args = [arg for arg in build_args if arg]
+        final_command = " \\\n".join(build_command + build_args)
+
+        # Execute command with improved error handling
+        try:
+            print(f"Engine build command:{fore('yellow')}\n{final_command}\n{style('reset')}")
+            subprocess.run(final_command, check=True, shell=True)
+        except subprocess.CalledProcessError as exc:
+            error_msg = f"Failed to build TensorRT engine. Error details:\nCommand: {exc.cmd}\n"
+            raise RuntimeError(error_msg) from exc
 
 
 class Engine(BaseEngine):
@@ -136,7 +219,7 @@ class Engine(BaseEngine):
 
     def activate(
         self,
-        device: str,
+        device: str | torch.device,
         device_memory: int | None = None,
     ):
         self.device = device
@@ -159,7 +242,7 @@ class Engine(BaseEngine):
     def allocate_buffers(
         self,
         shape_dict: dict[str, tuple],
-        device="cuda",
+        device: str | torch.device ="cuda",
     ):
         for binding in range(self.engine.num_io_tensors):
             tensor_name = self.engine.get_tensor_name(binding)
