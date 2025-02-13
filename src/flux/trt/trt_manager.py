@@ -17,7 +17,6 @@ import gc
 import os
 import sys
 import warnings
-from typing import Union
 
 import tensorrt as trt
 import torch
@@ -25,6 +24,7 @@ from cuda import cudart
 
 from flux.trt.engine import (
     BaseEngine,
+    Engine,
     CLIPEngine,
     T5Engine,
     TransformerEngine,
@@ -32,39 +32,23 @@ from flux.trt.engine import (
     VAEEncoder,
     VAEEngine,
 )
-from flux.trt.exporter import (
-    BaseExporter,
-    CLIPExporter,
-    T5Exporter,
-    TransformerExporter,
-    VAEDecoderExporter,
-    VAEEncoderExporter,
+from flux.trt.trt_config import (
+    TRTBaseConfig,
     get_config,
 )
-from flux.trt.mixin import BaseMixin
 
 TRT_LOGGER = trt.Logger()
 
 
 class TRTManager:
     @property
-    def model_to_engine_class(self) -> dict[str, type[Union[BaseMixin, BaseEngine]]]:
+    def model_to_engine_class(self) -> dict[str, type[Engine]]:
         return {
             "clip": CLIPEngine,
             "transformer": TransformerEngine,
             "t5": T5Engine,
             "vae": VAEDecoder,
             "vae_encoder": VAEEncoder,
-        }
-
-    @property
-    def model_to_exporter_dict(self) -> dict[str, type[Union[BaseMixin, BaseExporter]]]:
-        return {
-            "clip": CLIPExporter,
-            "transformer": TransformerExporter,
-            "t5": T5Exporter,
-            "vae": VAEDecoderExporter,
-            "vae_encoder": VAEEncoderExporter,
         }
 
     def __init__(
@@ -110,10 +94,9 @@ class TRTManager:
         trt_native_instancenorm: bool,
         trt_builder_optimization_level: int,
         trt_precision_constraints: str,
-    ) -> dict[str, Union[BaseMixin, BaseExporter]]:
+    ) -> dict[str, TRTBaseConfig]:
         exporters = {}
         for model_name, model in models.items():
-            exporter_class = self.model_to_exporter_dict[model_name]
             config_cls = get_config(
                 model_name=model_name,
                 tf32=self.tf32,
@@ -122,7 +105,9 @@ class TRTManager:
                 fp4=self.fp4,
                 t5_fp8=self.t5_fp8,
             )
-            trt_config = config_cls(
+            trt_config = config_cls.from_model(
+                model=model,
+                max_batch=self.max_batch,
                 onnx_dir=onnx_dir,
                 engine_dir=engine_dir,
                 trt_verbose=self.verbose,
@@ -135,11 +120,7 @@ class TRTManager:
                 trt_builder_optimization_level=trt_builder_optimization_level,
                 trt_precision_constraints=trt_precision_constraints,
             )
-            exporters[model_name] = exporter_class(
-                trt_config=trt_config,
-                max_batch=self.max_batch,
-                model=model,
-            )
+            exporters[model_name] = trt_config
 
         if "transformer" in exporters and "t5" in exporters:
             exporters["transformer"].text_maxlen = exporters["t5"].text_maxlen
@@ -150,35 +131,35 @@ class TRTManager:
 
     @staticmethod
     def _build_engine(
-        model_exporter: BaseExporter,
+        trt_config: TRTBaseConfig,
         opt_batch_size: int,
         opt_image_height: int,
         opt_image_width: int,
     ):
-        already_build = os.path.exists(model_exporter.trt_config.engine_path)
+        already_build = os.path.exists(trt_config.engine_path)
         if already_build:
             return
 
-        model_exporter.build(
-            engine_path=model_exporter.trt_config.engine_path,
-            onnx_path=model_exporter.trt_config.onnx_path,
-            strongly_typed=model_exporter.trt_config.trt_build_strongly_typed,
-            tf32=model_exporter.trt_config.trt_tf32,
-            bf16=model_exporter.trt_config.trt_bf16,
-            fp8=model_exporter.trt_config.trt_fp8,
-            fp4=model_exporter.trt_config.trt_fp4,
-            input_profile=model_exporter.get_input_profile(
+        trt_config.build_trt_engine(
+            engine_path=trt_config.engine_path,
+            onnx_path=trt_config.onnx_path,
+            strongly_typed=trt_config.trt_build_strongly_typed,
+            tf32=trt_config.trt_tf32,
+            bf16=trt_config.trt_bf16,
+            fp8=trt_config.trt_fp8,
+            fp4=trt_config.trt_fp4,
+            input_profile=trt_config.get_input_profile(
                 batch_size=opt_batch_size,
                 image_height=opt_image_height,
                 image_width=opt_image_width,
-                static_batch=model_exporter.trt_config.trt_static_batch,
-                static_shape=model_exporter.trt_config.trt_static_shape,
+                static_batch=trt_config.trt_static_batch,
+                static_shape=trt_config.trt_static_shape,
             ),
-            enable_all_tactics=model_exporter.trt_config.trt_enable_all_tactics,
-            timing_cache=model_exporter.trt_config.trt_timing_cache,
-            update_output_names=model_exporter.trt_config.trt_update_output_names,
-            builder_optimization_level=model_exporter.trt_config.trt_builder_optimization_level,
-            verbose=model_exporter.trt_config.trt_verbose,
+            enable_all_tactics=trt_config.trt_enable_all_tactics,
+            timing_cache=trt_config.trt_timing_cache,
+            update_output_names=trt_config.trt_update_output_names,
+            builder_optimization_level=trt_config.trt_builder_optimization_level,
+            verbose=trt_config.trt_verbose,
         )
 
         # Reclaim GPU memory from torch cache
@@ -206,7 +187,7 @@ class TRTManager:
             onnx_dir=onnx_dir,
         )
 
-        exporters = self._get_exporters(
+        trt_configs = self._get_exporters(
             models,
             engine_dir=engine_dir,
             onnx_dir=onnx_dir,
@@ -220,9 +201,9 @@ class TRTManager:
         )
 
         # Build TRT engines
-        for model_name, model_exporter in exporters.items():
+        for model_name, trt_config in trt_configs.items():
             self._build_engine(
-                model_exporter=model_exporter,
+                trt_config=trt_config,
                 opt_batch_size=opt_batch_size,
                 opt_image_height=opt_image_height,
                 opt_image_width=opt_image_width,
@@ -233,12 +214,11 @@ class TRTManager:
         self.init_runtime()
         # load TRT engines
         engines = {}
-        for model_name, model_exporter in exporters.items():
+        for model_name, trt_config in trt_configs.items():
             engine_class = self.model_to_engine_class[model_name]
             engine = engine_class(
-                engine_path=model_exporter.trt_config.engine_path,
+                trt_config=trt_config,
                 stream=self.stream,
-                **model_exporter.get_mixin_params(),
             )
             engines[model_name] = engine
 
