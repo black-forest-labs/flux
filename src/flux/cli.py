@@ -110,8 +110,14 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
-    trt: bool = False,
-    trt_transformer_precision: str = "bf16",
+    trt_bf16: bool = False,
+    trt_fp8: bool = False,
+    trt_fp4: bool = False,
+    trt_t5_fp8: bool = False,
+    trt_onnx_dir: str = "onnx_models",
+    trt_engine_dir: str = "engines",
+    trt_static_batch: bool = True,
+    trt_static_shape: bool = True,
     **kwargs: dict | None,
 ):
     """
