@@ -66,6 +66,10 @@ class TRTBaseConfig:
     def check_dims(self, *args, **kwargs) -> None | tuple[int, int]:
         pass
 
+    @abstractmethod
+    def get_engine_params(self) -> dict[str, Any]:
+        pass
+
     def __post_init__(self):
         self.onnx_path = self._get_onnx_path()
         self.engine_path = self._get_engine_path()

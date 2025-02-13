@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-
+from typing import Any
 from flux.modules.conditioner import HFEmbedder
 from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
 
@@ -70,4 +70,12 @@ class ClipConfig(TRTBaseConfig):
                 (batch_size, self.text_maxlen),
                 (max_batch, self.text_maxlen),
             ]
+        }
+
+    def get_engine_params(self) -> dict[str, Any]:
+        """helper class that return the parameters used for construction"""
+        return {
+            "text_maxlen": self.text_maxlen,
+            "hidden_size": self.hidden_size,
+            "engine_path": self.engine_path,
         }
