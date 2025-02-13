@@ -15,14 +15,13 @@
 # limitations under the License.
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
+from typing import Any
 
 from tensorrt import __version__ as trt_version
-
 from flux.model import Flux
-from flux.trt.exporter.base_exporter import BaseExporter, TRTBaseConfig, register_config
-from flux.trt.mixin import TransformerMixin
+from flux.trt.exporter.base_exporter import TRTBaseConfig, register_config
 
 
 @register_config(model_name="transformer", tf32=True, bf16=True, fp8=False, fp4=False)
@@ -30,12 +29,40 @@ from flux.trt.mixin import TransformerMixin
 @register_config(model_name="transformer", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
 class TransformerConfig(TRTBaseConfig):
+    guidance_embed: int | None = None
+    vec_in_dim: int | None = None
+    context_in_dim: int | None = None
+    in_channels: int | None = None
+    out_channels: int | None = None
+
+    compression_factor: int = 8
+    text_maxlen: int = 512
+    min_image_shape: int = 768
+    max_image_shape: int = 1344
+    min_latent_shape: int = field(init=False)
+    max_latent_shape: int = field(init=False)
+
     model_name: str = "transformer"
     trt_tf32: bool = True
     trt_bf16: bool = False
     trt_fp8: bool = False
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = True
+
+    @classmethod
+    def build(
+        cls,
+        model: Flux,
+        **kwargs,
+    ):
+        return cls(
+            guidance_embed=model.params.guidance_embed,
+            vec_in_dim=model.params.vec_in_dim,
+            context_in_dim=model.params.context_in_dim,
+            in_channels=model.params.in_channels,
+            out_channels=model.out_channels,
+            **kwargs,
+        )
 
     def _get_onnx_path(self) -> str:
         return os.path.join(
@@ -51,30 +78,12 @@ class TransformerConfig(TRTBaseConfig):
             f"{self.model_name}_{self.precision}.trt{trt_version}.plan",
         )
 
-
-class TransformerExporter(TransformerMixin, BaseExporter):
-    def __init__(
-        self,
-        model: Flux,
-        trt_config: TRTBaseConfig,
-        max_batch=4,
-        compression_factor=8,
-    ):
-        super().__init__(
-            guidance_embed=model.params.guidance_embed,
-            vec_in_dim=model.params.vec_in_dim,
-            context_in_dim=model.params.context_in_dim,
-            in_channels=model.params.in_channels,
-            out_channels=model.out_channels,
-            compression_factor=compression_factor,
-            trt_config=trt_config,
-            max_batch=max_batch,
-        )
-
-        self.min_image_shape = 768
-        self.max_image_shape = 1344
-        self.min_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
+    def __post_init__(self):
+        self.max_latent_shape = 2 * ceil(self.min_image_shape / (self.compression_factor * 2))
         self.max_latent_shape = 2 * ceil(self.max_image_shape / (self.compression_factor * 2))
+        self.onnx_path = self._get_onnx_path()
+        self.engine_path = self._get_engine_path()
+        assert os.path.isfile(self.onnx_path), "onnx_path do not exists: {}".format(self.onnx_path)
 
     def get_minmax_dims(
         self,
@@ -102,6 +111,16 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             min_latent_width,
             max_latent_width,
         )
+
+    def get_latent_dim(
+        self,
+        image_height: int,
+        image_width: int,
+    ) -> tuple[int, int]:
+        latent_height = 2 * ceil(image_height / (2 * self.compression_factor))
+        latent_width = 2 * ceil(image_width / (2 * self.compression_factor))
+
+        return (latent_height, latent_width)
 
     def check_dims(self, batch_size: int, image_height: int, image_width: int) -> tuple[int, int]:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
@@ -178,3 +197,16 @@ class TransformerExporter(TransformerMixin, BaseExporter):
             input_profile["guidance"] = [(min_batch,), (batch_size,), (max_batch,)]
 
         return input_profile
+
+    def get_engine_params(self) -> dict[str, Any]:
+        """helper class that return the parameters used for construction"""
+        return {
+            "guidance_embed": self.guidance_embed,
+            "vec_in_dim": self.vec_in_dim,
+            "context_in_dim": self.context_in_dim,
+            "in_channels": self.in_channels,
+            "out_channels": self.out_channels,
+            "compression_factor": self.compression_factor,
+            "text_maxlen": self.text_maxlen,
+            "engine_path": self.engine_path,
+        }
