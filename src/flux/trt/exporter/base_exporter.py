@@ -15,9 +15,7 @@
 # limitations under the License.
 
 import os
-import subprocess
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,14 +58,38 @@ class TRTBaseConfig:
         static_batch: bool,
         static_shape: bool,
     ) -> dict[str, Any]:
+        """
+        Generate max and min shape that each input of a TRT engine can have.
+
+        Subclasses must implement this method to return a dictionary that defines
+        the input profile based on the provided parameters. The input profile typically
+        includes details such as the expected shape of input tensors, whether the batch size
+        or image dimensions are fixed, and any additional configuration required by the
+        data processing or model inference pipeline.
+
+        Args:
+            batch_size (int): The number of images per batch.
+            image_height (int): Default height of each image in pixels.
+            image_width (int): Defailt width of each image in pixels.
+            static_batch (bool): Flag indicating if the batch size is fixed (static).
+            static_shape (bool): Flag indicating if the image dimensions are fixed (static).
+
+        Returns:
+            dict[str, Any]: A dictionary representing the input profile configuration.
+
+        Raises:
+            NotImplementedError: If the subclass does not override this abstract method.
+        """
         pass
 
     @abstractmethod
     def check_dims(self, *args, **kwargs) -> None | tuple[int, int]:
+        """helper function that check the dimentions associated to each input of a TRT engine"""
         pass
 
     @abstractmethod
     def get_engine_params(self) -> dict[str, Any]:
+        """Helper method that return the paramters needed to construct an Engine class"""
         pass
 
     def __post_init__(self):
@@ -87,6 +109,7 @@ class TRTBaseConfig:
             self.engine_dir,
             self.model_name + ".trt" + trt_version + ".plan",
         )
+
 
 def register_config(model_name: str, tf32=True, bf16=False, fp8=False, fp4=False, t5_fp8=False):
     """Decorator to register a configuration class with specific flag conditions."""
