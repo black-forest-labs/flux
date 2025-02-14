@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,70 +14,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-
+from dataclasses import dataclass
+from typing import Any
 from flux.modules.conditioner import HFEmbedder
-from flux.trt.exporter.base_exporter import BaseExporter, TransformersModelWrapper
-from flux.trt.mixin import T5Mixin
+from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
-class T5Exporter(T5Mixin, BaseExporter):
-    def __init__(
-        self,
+@register_config(model_name="clip", tf32=True, bf16=True, fp8=False, fp4=False)
+@register_config(model_name="clip", tf32=True, bf16=False, fp8=True, fp4=False)
+@register_config(model_name="clip", tf32=True, bf16=False, fp8=False, fp4=True)
+@dataclass
+class ClipConfig(TRTBaseConfig):
+    text_maxlen: int | None = None
+    hidden_size: int | None = None
+    model_name: str = "clip"
+    trt_tf32: bool = True
+    trt_bf16: bool = True
+    trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = False
+
+    @classmethod
+    def from_model(
+        cls,
         model: HFEmbedder,
-        fp16=False,
-        tf32=True,
-        bf16=False,
-        max_batch=8,
-        build_strongly_typed=False,
-        verbose=True,
+        **kwargs,
     ):
-        exp_model = TransformersModelWrapper(model=model, output_name="last_hidden_state")
-        super().__init__(
+        return cls(
             text_maxlen=model.max_length,
             hidden_size=model.hf_module.config.hidden_size,
-            model=exp_model,
-            fp16=fp16,
-            tf32=tf32,
-            bf16=bf16,
-            max_batch=max_batch,
-            verbose=verbose,
+            **kwargs,
         )
-        self.build_strongly_typed = build_strongly_typed
-        # set proper dtype
-        self.prepare_model()
-
-    def get_input_names(self):
-        return ["input_ids"]
-
-    def get_output_names(self):
-        return ["text_embeddings"]
-
-    def get_dynamic_axes(self):
-        dynamic_axes = {
-            "input_ids": {0: "B"},
-            "text_embeddings": {0: "B"},
-        }
-        return dynamic_axes
 
     def check_dims(
         self,
         batch_size: int,
     ) -> None:
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
-
-    def get_sample_input(
-        self,
-        batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
-    ) -> torch.Tensor:
-        self.check_dims(batch_size)
-        return torch.zeros(
-            (batch_size, self.text_maxlen),
-            dtype=torch.int32,
-            device=self.device,
-        )
 
     def get_input_profile(
         self,
@@ -97,4 +70,12 @@ class T5Exporter(T5Mixin, BaseExporter):
                 (batch_size, self.text_maxlen),
                 (max_batch, self.text_maxlen),
             ]
+        }
+
+    def get_engine_params(self) -> dict[str, Any]:
+        """helper class that return the parameters used for construction"""
+        return {
+            "text_maxlen": self.text_maxlen,
+            "hidden_size": self.hidden_size,
+            "engine_path": self.engine_path,
         }

@@ -176,8 +176,14 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
-    trt: bool = False,
-    trt_transformer_precision: str = "bf16",
+    trt_bf16: bool = False,
+    trt_fp8: bool = False,
+    trt_fp4: bool = False,
+    trt_t5_fp8: bool = False,
+    trt_onnx_dir: str = "onnx_models",
+    trt_engine_dir: str = "engines",
+    trt_static_batch: bool = True,
+    trt_static_shape: bool = True,
     **kwargs: dict | None,
 ):
     """
@@ -240,7 +246,7 @@ def main(
 
     # set lora scale
     if "lora" in name and lora_scale is not None:
-        assert not trt, "TRT does not support LORA yet"
+        assert not trt_bf16 or trt_fp8 or trt_fp4, "TRT does not support LORA yet"
         for _, module in model.named_modules():
             if hasattr(module, "set_scale"):
                 module.set_scale(lora_scale)
@@ -252,12 +258,13 @@ def main(
     else:
         raise NotImplementedError()
 
-    if trt:
+    if trt_bf16 or trt_fp8 or trt_fp4:
         trt_ctx_manager = TRTManager(
-            bf16=True,
+            bf16=trt_bf16,
+            fp8=trt_fp8,
+            fp4=trt_fp4,
+            t5_fp8=trt_t5_fp8,
             device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -269,18 +276,14 @@ def main(
                 "vae": ae.decoder.cpu(),
                 "vae_encoder": ae.encoder.cpu(),
             },
-            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
-            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            engine_dir=trt_engine_dir,
+            onnx_dir=trt_onnx_dir,
             opt_image_height=height,
             opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            trt_static_batch=trt_static_batch,
+            trt_static_shape=trt_static_shape,
         )
         torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -390,6 +393,8 @@ def main(
         else:
             opts = None
 
+    if trt_bf16 or trt_fp8 or trt_fp4:
+        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)
