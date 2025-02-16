@@ -153,7 +153,6 @@ class FluxGenerator:
             exif_data[ExifTags.Base.Model] = self.model_name
             if add_sampling_metadata:
                 exif_data[ExifTags.Base.ImageDescription] = prompt
-
             img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
 
             return img, str(opts.seed), filename, None
