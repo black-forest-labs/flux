@@ -65,12 +65,36 @@ class TRTBaseConfig:
         update_output_names: list[str] | None = None,
         enable_refit=False,
         enable_all_tactics=False,
-        timing_cache=None,
+        timing_cache: str | None = None,
         native_instancenorm=True,
         builder_optimization_level=3,
         precision_constraints="none",
         verbose=False,
     ):
+        """
+        Metod used to build a TRT engine from a given set of flags or configurations using polygraphy.
+
+        Args:
+            engine_path (str): Output path used to store the build engine.
+            onnx_path (str): Path containing an onnx model used to generated the engine.
+            strongly_typed (bool): Flag indicating if the engine should be strongly typed.
+            tf32 (bool): Whether to build the engine with TF32 precision enabled.
+            bf16 (bool): Whether to build the engine with BF16 precision enabled.
+            fp8 (bool): Whether to build the engine with FP8 precision enabled. Refer to plain dataype and do not interfer with quantization introduced by modelopt.
+            fp4 (bool): Whether to build the engine with FP4 precision enabled. Refer to plain dataype and do not interfer with quantization introduced by modelopt.
+            input_profile (dict[str, Any]): A set of optimization profiles to add to the configuration. Only needed for networks with dynamic input shapes.
+            update_output_names (list[str]): List of output names to use in the trt engines.
+            enable_refit (bool): Enables the engine to be refitted with new weights after it is built.
+            enable_all_tactics (bool): Enables TRT to leverage all tactics or not.
+            timing_cache (str): A path or file-like object from which to load a tactic timing cache.
+            native_instancenorm (bool): support of instancenorm plugin.
+            builder_optimization_level (int): The builder optimization level.
+            precision_constraints (str):  If set to “obey”, require that layers execute in specified precisions. If set to “prefer”, prefer that layers execute in specified precisions but allow TRT to fall back to other precisions if no implementation exists for the requested precision. Otherwise, precision constraints are ignored.
+            verbose (bool): Weather to support verbose output
+
+        Returns:
+            dict[str, Any]: A dictionary representing the input profile configuration.
+        """
         print(f"Building TensorRT engine for {onnx_path}: {engine_path}")
 
         # Base command
