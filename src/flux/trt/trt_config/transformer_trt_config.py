@@ -28,7 +28,7 @@ from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 @register_config(model_name="transformer", tf32=True, bf16=False, fp8=False, fp4=True)
 @dataclass
 class TransformerConfig(TRTBaseConfig):
-    guidance_embed: int | None = None
+    guidance_embed: bool | None = None
     vec_in_dim: int | None = None
     context_in_dim: int | None = None
     in_channels: int | None = None
