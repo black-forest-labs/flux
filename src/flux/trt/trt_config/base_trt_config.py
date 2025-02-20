@@ -218,24 +218,18 @@ class TRTBaseConfig:
         )
 
 
-def register_config(model_name: str, tf32=True, bf16=False, fp8=False, fp4=False, t5_fp8=False):
+def register_config(model_name: str, tf32=True, bf16=False, fp8=False, fp4=False):
     """Decorator to register a configuration class with specific flag conditions."""
 
     def decorator(cls):
-        if model_name == "t5":
-            key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}_t5-fp8={t5_fp8}"
-        else:
-            key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
+        key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
         registry[key] = cls
         return cls
 
     return decorator
 
 
-def get_config(model_name: str, tf32=True, bf16=True, fp8=False, fp4=False, t5_fp8=False) -> TRTBaseConfig:
+def get_config(model_name: str, tf32=True, bf16=True, fp8=False, fp4=False) -> TRTBaseConfig:
     """Retrieve the appropriate configuration instance based on current flags."""
-    if model_name == "t5":
-        key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}_t5-fp8={t5_fp8}"
-    else:
-        key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
+    key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
     return registry[key]
