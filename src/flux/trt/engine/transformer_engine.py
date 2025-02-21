@@ -15,12 +15,13 @@
 # limitations under the License.
 
 import torch
+from cuda.cudart import cudaStream_t
 
 from flux.trt.engine import Engine
-from flux.trt.mixin import TransformerMixin
+from flux.trt.trt_config import TransformerConfig
 
 
-class TransformerEngine(TransformerMixin, Engine):
+class TransformerEngine(Engine):
     __dd_to_flux__ = {
         "hidden_states": "img",
         "img_ids": "img_ids",
@@ -45,24 +46,12 @@ class TransformerEngine(TransformerMixin, Engine):
 
     def __init__(
         self,
-        guidance_embed: bool,
-        vec_in_dim: int,
-        context_in_dim: int,
-        in_channels: int,
-        out_channels: int,
-        compression_factor: int,
-        text_maxlen: int,
-        engine_path: str,
+        trt_config: TransformerConfig,
+        stream: cudaStream_t,
     ):
         super().__init__(
-            guidance_embed=guidance_embed,
-            vec_in_dim=vec_in_dim,
-            context_in_dim=context_in_dim,
-            in_channels=in_channels,
-            out_channels=out_channels,
-            compression_factor=compression_factor,
-            text_maxlen=text_maxlen,
-            engine_path=engine_path,
+            trt_config=trt_config,
+            stream=stream,
         )
 
     @property
@@ -105,16 +94,20 @@ class TransformerEngine(TransformerMixin, Engine):
         hidden_size: int,
     ) -> dict[str, tuple]:
         shape_dict = {
-            "hidden_states": (batch_size, hidden_size, self.in_channels),
-            "encoder_hidden_states": (batch_size, self.text_maxlen, self.context_in_dim),
-            "pooled_projections": (batch_size, self.vec_in_dim),
+            "hidden_states": (batch_size, hidden_size, self.trt_config.in_channels),
+            "encoder_hidden_states": (
+                batch_size,
+                self.trt_config.text_maxlen,
+                self.trt_config.context_in_dim,
+            ),
+            "pooled_projections": (batch_size, self.trt_config.vec_in_dim),
             "timestep": (batch_size,),
             "img_ids": (hidden_size, 3),
-            "txt_ids": (self.text_maxlen, 3),
-            "latent": (batch_size, hidden_size, self.out_channels),
+            "txt_ids": (self.trt_config.text_maxlen, 3),
+            "latent": (batch_size, hidden_size, self.trt_config.out_channels),
         }
 
-        if self.guidance_embed:
+        if self.trt_config.guidance_embed:
             shape_dict["guidance"] = (batch_size,)
 
         return shape_dict
