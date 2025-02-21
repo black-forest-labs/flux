@@ -19,7 +19,7 @@ from math import ceil
 from flux.modules.autoencoder import Decoder, Encoder
 from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
-
+@dataclass
 class VAEBaseConfig(TRTBaseConfig):
     z_channels: int | None = None
     scale_factor: float | None = None
