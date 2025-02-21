@@ -13,8 +13,9 @@ from flux.modules.image_embedders import CannyImageEncoder, DepthImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_control, unpack
 try:
     from flux.trt.trt_manager import TRTManager
+    TRT_AVAIABLE = True
 except:  # noqa: E722
-    print("trt engine not supported, install dependencies with `pip install -e \".[tensorrt]\" --extra-index-url https://pypi.nvidia.com`")
+    TRT_AVAIABLE = False
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 
@@ -259,6 +260,10 @@ def main(
         raise NotImplementedError()
 
     if trt_onnx_dir is not None and trt_engine_dir is not None:
+
+        if not TRT_AVAIABLE:
+            raise ModuleNotFoundError("tensorrt dependencies are needed. Follow README instruction to setup the tensorrt environment.")
+
         if trt_precision == "bf16":
             bf16, fp8, fp4 = True, False, False
         elif trt_precision == "fp8":
@@ -266,7 +271,8 @@ def main(
         elif trt_precision == "fp4":
             bf16, fp8, fp4 = False, False, True
         else:
-            raise NotImplementedError(f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values")
+            raise NotImplementedError(f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values.")
+
         trt_ctx_manager = TRTManager(
             bf16=bf16,
             fp8=fp8,
