@@ -11,7 +11,10 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import CannyImageEncoder, DepthImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_control, unpack
-from flux.trt.trt_manager import TRTManager
+try:
+    from flux.trt.trt_manager import TRTManager
+except:  # noqa: E722
+    print("trt engine not supported, install dependencies with `pip install -e \".[tensorrt]\" --extra-index-url https://pypi.nvidia.com`")
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 
@@ -176,8 +179,11 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
-    trt: bool = False,
-    trt_transformer_precision: str = "bf16",
+    trt_onnx_dir: str | None = None,
+    trt_engine_dir: str | None = None,
+    trt_precision: str = "bf16",
+    trt_static_batch: bool = True,
+    trt_static_shape: bool = True,
     **kwargs: dict | None,
 ):
     """
@@ -252,12 +258,19 @@ def main(
     else:
         raise NotImplementedError()
 
-    if trt:
+    if trt_onnx_dir is not None and trt_engine_dir is not None:
+        if trt_precision == "bf16":
+            bf16, fp8, fp4 = True, False, False
+        elif trt_precision == "fp8":
+            bf16, fp8, fp4 = False, True, False
+        elif trt_precision == "fp4":
+            bf16, fp8, fp4 = False, False, True
+        else:
+            raise NotImplementedError(f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values")
         trt_ctx_manager = TRTManager(
-            bf16=True,
-            device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
+            bf16=bf16,
+            fp8=fp8,
+            fp4=fp4,
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -269,18 +282,15 @@ def main(
                 "vae": ae.decoder.cpu(),
                 "vae_encoder": ae.encoder.cpu(),
             },
-            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
-            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            opt_image_height=height,
-            opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            engine_dir=trt_engine_dir,
+            onnx_dir=trt_onnx_dir,
+            trt_image_height=height,
+            trt_image_width=width,
+            trt_batch_size=kwargs.get("trt_batch_size", 1),
+            trt_static_batch=kwargs.get("trt_static_batch", True),
+            trt_static_shape=kwargs.get("trt_static_shape", True),
         )
         torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -390,6 +400,8 @@ def main(
         else:
             opts = None
 
+    if trt_onnx_dir is not None and trt_engine_dir is not None:
+        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)
