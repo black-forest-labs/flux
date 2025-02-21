@@ -183,8 +183,6 @@ def main(
     trt_onnx_dir: str | None = None,
     trt_engine_dir: str | None = None,
     trt_precision: str = "bf16",
-    trt_static_batch: bool = True,
-    trt_static_shape: bool = True,
     **kwargs: dict | None,
 ):
     """
@@ -247,7 +245,7 @@ def main(
 
     # set lora scale
     if "lora" in name and lora_scale is not None:
-        assert not trt, "TRT does not support LORA yet"
+        assert not trt_onnx_dir and not trt_engine_dir, "TRT does not support LORA"
         for _, module in model.named_modules():
             if hasattr(module, "set_scale"):
                 module.set_scale(lora_scale)
