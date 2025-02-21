@@ -260,7 +260,9 @@ def main(
     if trt_onnx_dir is not None and trt_engine_dir is not None:
 
         if not TRT_AVAIABLE:
-            raise ModuleNotFoundError("tensorrt dependencies are needed. Follow README instruction to setup the tensorrt environment.")
+            raise ModuleNotFoundError(
+                "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
+            )
 
         if trt_precision == "bf16":
             bf16, fp8, fp4 = True, False, False
@@ -269,13 +271,12 @@ def main(
         elif trt_precision == "fp4":
             bf16, fp8, fp4 = False, False, True
         else:
-            raise NotImplementedError(f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values.")
+            raise NotImplementedError(
+                f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values."
+            )
 
-        trt_ctx_manager = TRTManager(
-            bf16=bf16,
-            fp8=fp8,
-            fp4=fp4,
-        )
+        trt_ctx_manager = TRTManager(bf16=bf16, fp8=fp8, fp4=fp4)
+
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
