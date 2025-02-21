@@ -131,9 +131,9 @@ class TRTManager:
     @staticmethod
     def _build_engine(
         trt_config: TRTBaseConfig,
-        opt_batch_size: int,
-        opt_image_height: int,
-        opt_image_width: int,
+        batch_size: int,
+        image_height: int,
+        image_width: int,
     ):
         already_build = os.path.exists(trt_config.engine_path)
         if already_build:
@@ -148,9 +148,9 @@ class TRTManager:
             fp8=trt_config.trt_fp8,
             fp4=trt_config.trt_fp4,
             input_profile=trt_config.get_input_profile(
-                batch_size=opt_batch_size,
-                image_height=opt_image_height,
-                image_width=opt_image_width,
+                batch_size=batch_size,
+                image_height=image_height,
+                image_width=image_width,
                 static_batch=trt_config.trt_static_batch,
                 static_shape=trt_config.trt_static_shape,
             ),
@@ -170,9 +170,9 @@ class TRTManager:
         models: dict[str, torch.nn.Module],
         engine_dir: str,
         onnx_dir: str,
-        opt_image_height: int,
-        opt_image_width: int,
-        opt_batch_size=1,
+        trt_image_height: int,
+        trt_image_width: int,
+        trt_batch_size=1,
         trt_static_batch=True,
         trt_static_shape=True,
         trt_enable_all_tactics=False,
@@ -203,9 +203,9 @@ class TRTManager:
         for model_name, trt_config in trt_configs.items():
             self._build_engine(
                 trt_config=trt_config,
-                opt_batch_size=opt_batch_size,
-                opt_image_height=opt_image_height,
-                opt_image_width=opt_image_width,
+                batch_size=trt_batch_size,
+                image_height=trt_image_height,
+                image_width=trt_image_width,
             )
 
         gc.collect()
