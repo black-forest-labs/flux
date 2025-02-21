@@ -72,11 +72,9 @@ class TRTManager:
         assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
-    def _create_directories(engine_dir: str, onnx_dir: str):
-        # Create directories if missing
-        for directory in [engine_dir, onnx_dir]:
-            print(f"[I] Create directory: {directory} if not existing")
-            os.makedirs(directory, exist_ok=True)
+    def _create_directories(engine_dir: str):
+        print(f"[I] Create directory: {engine_dir} if not existing")
+        os.makedirs(engine_dir, exist_ok=True)
 
     def _get_trt_configs(
         self,
@@ -179,10 +177,7 @@ class TRTManager:
         trt_builder_optimization_level=3,
         trt_precision_constraints="none",
     ) -> dict[str, BaseEngine]:
-        self._create_directories(
-            engine_dir=engine_dir,
-            onnx_dir=onnx_dir,
-        )
+        self._create_directories(engine_dir=engine_dir)
 
         trt_configs = self._get_trt_configs(
             models,
