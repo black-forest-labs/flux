@@ -53,7 +53,6 @@ class TRTManager:
 
     def __init__(
         self,
-        device: str | torch.device,
         max_batch=2,
         tf32=True,
         bf16=False,
@@ -62,7 +61,6 @@ class TRTManager:
         verbose=False,
     ):
         assert bf16 + fp8 + fp4 == 1, "only one model type can be active"
-        self.device = device
         self.max_batch = max_batch
         self.tf32 = tf32
         self.bf16 = bf16
