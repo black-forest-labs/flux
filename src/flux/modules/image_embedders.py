@@ -10,6 +10,7 @@ from torch import nn
 from transformers import AutoModelForDepthEstimation, AutoProcessor, SiglipImageProcessor, SiglipVisionModel
 
 from flux.util import print_load_warning
+from flux.hpu_utils import load_model_to_hpu
 
 
 class DepthImageEncoder:
@@ -17,8 +18,20 @@ class DepthImageEncoder:
 
     def __init__(self, device):
         self.device = device
-        self.depth_model = AutoModelForDepthEstimation.from_pretrained(self.depth_model_name).to(device)
-        self.processor = AutoProcessor.from_pretrained(self.depth_model_name)
+        self.depth_model = self._get_depth_model()
+        self.processor = self._get_processor()
+
+    def _get_depth_model(self):
+        _model = AutoModelForDepthEstimation.from_pretrained(self.depth_model_name)
+        if str(self.device) == "hpu":
+            return load_model_to_hpu(self.depth_model)
+        return _model.to(self.device)
+
+    def _get_processor(self):
+        _processor = AutoProcessor.from_pretrained(self.depth_model_name)
+        if str(self.device) == "hpu":
+            return load_model_to_hpu(_processor)
+        return _processor.to(self.device)
 
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
         hw = img.shape[-2:]
@@ -60,6 +73,9 @@ class CannyImageEncoder:
         canny = torch.from_numpy(canny).float() / 127.5 - 1.0
         canny = rearrange(canny, "h w -> 1 1 h w")
         canny = repeat(canny, "b 1 ... -> b 3 ...")
+
+        if str(self.device) == "hpu":
+            return load_model_to_hpu(canny)
         return canny.to(self.device)
 
 

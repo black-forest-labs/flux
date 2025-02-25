@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
-from fire import Fire
 from PIL import Image
+from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare_fill, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_device_initial
+from flux.hpu_utils import load_model_to_hpu, get_dtype
 
 
 @dataclass
@@ -175,7 +176,7 @@ def parse_img_mask_path(options: SamplingOptions | None) -> SamplingOptions | No
 def main(
     seed: int | None = None,
     prompt: str = "a white paper cup",
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str | None = None,
     num_steps: int = 50,
     loop: bool = False,
     guidance: float = 30.0,
@@ -203,6 +204,7 @@ def main(
         img_cond_path: path to conditioning image (jpeg/png/webp)
         img_mask_path: path to conditioning mask (jpeg/png/webp
     """
+    device = get_device_initial(device)
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
     name = "flux-dev-fill"
@@ -254,6 +256,7 @@ def main(
 
         opts = parse_img_mask_path(opts)
 
+    dtype = get_dtype(str(device))
     while opts is not None:
         if opts.seed is None:
             opts.seed = rng.seed()
@@ -266,12 +269,19 @@ def main(
             opts.height,
             opts.width,
             device=torch_device,
-            dtype=torch.bfloat16,
+            dtype=dtype,
             seed=opts.seed,
         )
+        if str(device) == "hpu":
+            x = load_model_to_hpu(x)
+
         opts.seed = None
-        if offload:
+        if offload and str(device) != "hpu":
             t5, clip, ae = t5.to(torch_device), clip.to(torch_device), ae.to(torch.device)
+        if str(device) == "hpu":
+            ae = load_model_to_hpu(ae)
+            clip = load_model_to_hpu(clip)
+
         inp = prepare_fill(
             t5,
             clip,
@@ -285,23 +295,26 @@ def main(
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # offload TEs and AE to CPU, load model to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             t5, clip, ae = t5.cpu(), clip.cpu(), ae.cpu()
             torch.cuda.empty_cache()
             model = model.to(torch_device)
+
+        if str(device) == "hpu":
+            model = load_model_to_hpu(model)
 
         # denoise initial noise
         x = denoise(model, **inp, timesteps=timesteps, guidance=opts.guidance)
 
         # offload model, load autoencoder to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             model.cpu()
             torch.cuda.empty_cache()
             ae.decoder.to(x.device)
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.height, opts.width)
-        with torch.autocast(device_type=torch_device.type, dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch_device.type, dtype=dtype):
             x = ae.decode(x)
 
         if torch.cuda.is_available():
