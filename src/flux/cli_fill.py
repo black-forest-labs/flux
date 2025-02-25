@@ -282,6 +282,8 @@ def main(
             ae = load_model_to_hpu(ae)
             clip = load_model_to_hpu(clip)
 
+        if offload and str(device) != "hpu":
+            t5, clip, ae = t5.to(torch_device), clip.to(torch_device), ae.to(torch_device)
         inp = prepare_fill(
             t5,
             clip,
