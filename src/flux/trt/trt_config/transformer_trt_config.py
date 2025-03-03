@@ -23,9 +23,9 @@ from flux.model import Flux
 from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
 
-@register_config(model_name="transformer", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="transformer", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="transformer", tf32=True, bf16=False, fp8=False, fp4=True)
+@register_config(model_name="transformer", precision="bf16")
+@register_config(model_name="transformer", precision="fp8")
+@register_config(model_name="transformer", precision="fp4")
 @dataclass
 class TransformerConfig(TRTBaseConfig):
     guidance_embed: bool | None = None
