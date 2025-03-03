@@ -82,7 +82,6 @@ class TRTManager:
             precisions["transformer"] = "bf16"
             warnings.warn("Default transformer precision used: `bf16`.")
 
-
         if "t5=bf16" in trt_precision:
             precisions["t5"] = "bf16"
         elif "t5=fp8" in trt_precision:
