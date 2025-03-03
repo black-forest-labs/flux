@@ -53,23 +53,43 @@ class TRTManager:
 
     def __init__(
         self,
+        trt_precisions: str,
         max_batch=2,
-        tf32=True,
-        bf16=False,
-        fp8=False,
-        fp4=False,
         verbose=False,
     ):
-        assert bf16 + fp8 + fp4 == 1, "only one model type can be active"
         self.max_batch = max_batch
-        self.tf32 = tf32
-        self.bf16 = bf16
-        self.fp8 = fp8
-        self.fp4 = fp4
+        self.precisions = self._parse_models_precisions(trt_precisions)
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
         assert torch.cuda.is_available(), "No cuda device available"
+
+    @staticmethod
+    def _parse_models_precisions(trt_precision: str):
+        precisions = {
+            "clip": "bf16",
+            "vae": "bf16",
+            "vae_encoder": "bf16",
+        }
+
+        if "transformer=bf16" in trt_precision:
+            precisions["transformer"] = "bf16"
+        elif "transformer=fp8" in trt_precision:
+            precisions["transformer"] = "fp8"
+        elif "transformer=fp4" in trt_precision:
+            precisions["transformer"] = "fp4"
+        else:
+            precisions["transformer"] = "bf16"
+            warnings.warn("Default transformer precision used: `bf16`.")
+
+
+        if "t5=bf16" in trt_precision:
+            precisions["t5"] = "bf16"
+        elif "t5=fp8" in trt_precision:
+            precisions["t5"] = "fp8"
+        else:
+            precisions["t5"] = "bf16"
+            warnings.warn("Default t5 precision used: `bf16`.")
 
     @staticmethod
     def _create_directories(engine_dir: str):
