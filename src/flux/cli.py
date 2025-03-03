@@ -190,18 +190,7 @@ def main(
                 "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
             )
 
-        if trt_precision == "bf16":
-            bf16, fp8, fp4 = True, False, False
-        elif trt_precision == "fp8":
-            bf16, fp8, fp4 = False, True, False
-        elif trt_precision == "fp4":
-            bf16, fp8, fp4 = False, False, True
-        else:
-            raise NotImplementedError(
-                f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values."
-            )
-
-        trt_ctx_manager = TRTManager(bf16=bf16, fp8=fp8, fp4=fp4)
+        trt_ctx_manager = TRTManager(trt_precision)
 
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
