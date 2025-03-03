@@ -65,7 +65,7 @@ class TRTManager:
         assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
-    def _parse_models_precisions(trt_precision: str):
+    def _parse_models_precisions(trt_precision: str) -> dict[str, str]:
         precisions = {
             "clip": "bf16",
             "vae": "bf16",
@@ -89,6 +89,7 @@ class TRTManager:
         else:
             precisions["t5"] = "bf16"
             warnings.warn("Default t5 precision used: `bf16`.")
+        return precisions
 
     @staticmethod
     def _create_directories(engine_dir: str):
@@ -110,13 +111,7 @@ class TRTManager:
     ) -> dict[str, TRTBaseConfig]:
         trt_configs = {}
         for model_name, model in models.items():
-            config_cls = get_config(
-                model_name=model_name,
-                tf32=self.tf32,
-                bf16=self.bf16,
-                fp8=self.fp8,
-                fp4=self.fp4,
-            )
+            config_cls = get_config(model_name=model_name, precision=self.precisions[model_name])
 
             trt_config = config_cls.from_model(
                 model=model,
@@ -124,7 +119,7 @@ class TRTManager:
                 onnx_dir=onnx_dir,
                 engine_dir=engine_dir,
                 trt_verbose=self.verbose,
-                precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
+                precision=self.precisions[model_name],
                 trt_static_batch=trt_static_batch,
                 trt_static_shape=trt_static_shape,
                 trt_enable_all_tactics=trt_enable_all_tactics,
