@@ -60,14 +60,23 @@ class T5BaseConfig(TRTBaseConfig):
         }
 
 
-@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True)
+@register_config(model_name="t5", precision="bf16")
 @dataclass
 class T5Config(T5BaseConfig):
     model_name: str = "t5"
     trt_tf32: bool = True
     trt_bf16: bool = False
     trt_fp8: bool = False
+    trt_fp4: bool = False
+    trt_build_strongly_typed: bool = True
+
+
+@register_config(model_name="t5", precision="fp8")
+@dataclass
+class T5Fp8Config(T5BaseConfig):
+    model_name: str = "t5"
+    trt_tf32: bool = False
+    trt_bf16: bool = False
+    trt_fp8: bool = True
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = True
