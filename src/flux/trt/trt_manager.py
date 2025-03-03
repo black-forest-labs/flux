@@ -72,19 +72,19 @@ class TRTManager:
             "vae_encoder": "bf16",
         }
 
-        if "transformer=bf16" in trt_precision:
+        if "transformer-bf16" in trt_precision:
             precisions["transformer"] = "bf16"
-        elif "transformer=fp8" in trt_precision:
+        elif "transformer-fp8" in trt_precision:
             precisions["transformer"] = "fp8"
-        elif "transformer=fp4" in trt_precision:
+        elif "transformer-fp4" in trt_precision:
             precisions["transformer"] = "fp4"
         else:
             precisions["transformer"] = "bf16"
             warnings.warn("Default transformer precision used: `bf16`.")
 
-        if "t5=bf16" in trt_precision:
+        if "t5-bf16" in trt_precision:
             precisions["t5"] = "bf16"
-        elif "t5=fp8" in trt_precision:
+        elif "t5-fp8" in trt_precision:
             precisions["t5"] = "fp8"
         else:
             precisions["t5"] = "bf16"
