@@ -38,6 +38,8 @@ from flux.trt.trt_config import (
 )
 
 TRT_LOGGER = trt.Logger()
+VALID_TRANSFORMER_PRECISIONS = {"bf16", "fp8", "fp4"}
+VALID_T5_PRECISIONS = {"bf16", "fp8"}
 
 
 class TRTManager:
@@ -53,42 +55,38 @@ class TRTManager:
 
     def __init__(
         self,
-        trt_precisions: str,
+        trt_transformer_precision: str,
+        trt_t5_precision: str,
         max_batch=2,
         verbose=False,
     ):
         self.max_batch = max_batch
-        self.precisions = self._parse_models_precisions(trt_precisions)
+        self.precisions = self._parse_models_precisions(
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=trt_t5_precision,
+        )
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
         assert torch.cuda.is_available(), "No cuda device available"
 
     @staticmethod
-    def _parse_models_precisions(trt_precision: str) -> dict[str, str]:
+    def _parse_models_precisions(trt_transformer_precision: str, trt_t5_precision: str) -> dict[str, str]:
         precisions = {
             "clip": "bf16",
             "vae": "bf16",
             "vae_encoder": "bf16",
         }
 
-        if "transformer-bf16" in trt_precision:
-            precisions["transformer"] = "bf16"
-        elif "transformer-fp8" in trt_precision:
-            precisions["transformer"] = "fp8"
-        elif "transformer-fp4" in trt_precision:
-            precisions["transformer"] = "fp4"
-        else:
-            precisions["transformer"] = "bf16"
-            warnings.warn("Default transformer precision used: `bf16`.")
+        assert (
+            trt_transformer_precision in VALID_TRANSFORMER_PRECISIONS
+        ), f"Invalid precision for flux-transformer `{trt_transformer_precision}`. Possible value are {VALID_TRANSFORMER_PRECISIONS}"
+        precisions["transformer"] = trt_transformer_precision
 
-        if "t5-bf16" in trt_precision:
-            precisions["t5"] = "bf16"
-        elif "t5-fp8" in trt_precision:
-            precisions["t5"] = "fp8"
-        else:
-            precisions["t5"] = "bf16"
-            warnings.warn("Default t5 precision used: `bf16`.")
+        assert (
+            trt_t5_precision in VALID_T5_PRECISIONS
+        ), f"Invalid precision for T5 `{trt_t5_precision}`. Possible value are {VALID_T5_PRECISIONS}"
+        precisions["t5"] = trt_t5_precision
         return precisions
 
     @staticmethod
