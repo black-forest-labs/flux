@@ -191,6 +191,7 @@ class TRTManager:
         trt_builder_optimization_level=3,
         trt_precision_constraints="none",
     ) -> dict[str, BaseEngine]:
+        self._clean_memory()
         self._create_directories(engine_dir=engine_dir)
 
         trt_configs = self._get_trt_configs(
@@ -215,8 +216,7 @@ class TRTManager:
                 image_width=trt_image_width,
             )
 
-        gc.collect()
-        torch.cuda.empty_cache()
+        self._clean_memory()
         self.init_runtime()
         # load TRT engines
         engines = {}
@@ -233,9 +233,13 @@ class TRTManager:
                 decoder=engines.pop("vae"),
                 encoder=engines.pop("vae_encoder", None),
             )
+        self._clean_memory()
+        return engines
+
+    @staticmethod
+    def _clean_memory():
         gc.collect()
         torch.cuda.empty_cache()
-        return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
