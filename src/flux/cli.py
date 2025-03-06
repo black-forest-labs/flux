@@ -10,12 +10,7 @@ from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-try:
-    from flux.trt.trt_manager import TRTManager
-    TRT_AVAIABLE = True
-except:  # noqa: E722
-    TRT_AVAIABLE = False
-
+from flux.trt.trt_manager import TRTManager
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
@@ -115,9 +110,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
-    trt_onnx_dir: str | None = None,
-    trt_engine_dir: str | None = None,
-    trt_precision: str = "bf16",
+    trt: bool = False,
+    trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
 ):
     """
@@ -184,31 +178,42 @@ def main(
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
-        if not TRT_AVAIABLE:
-            raise ModuleNotFoundError(
-                "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
-            )
+    if trt:
+        # offload to CPU to save memory
+        ae = ae.cpu()
+        model = model.cpu()
+        clip = clip.cpu()
+        t5 = t5.cpu()
 
-        trt_ctx_manager = TRTManager(trt_precision)
+        torch.cuda.empty_cache()
 
+        trt_ctx_manager = TRTManager(
+            bf16=True,
+            device=torch_device,
+            static_batch=kwargs.get("static_batch", True),
+            static_shape=kwargs.get("static_shape", True),
+        )
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
-                "clip": clip.cpu(),
-                "transformer": model.cpu(),
-                "t5": t5.cpu(),
-                "vae": ae.decoder.cpu(),
+                "clip": clip,
+                "transformer": model,
+                "t5": t5,
+                "vae": ae.decoder,
             },
-            engine_dir=trt_engine_dir,
-            onnx_dir=trt_onnx_dir,
-            trt_image_height=height,
-            trt_image_width=width,
-            trt_batch_size=kwargs.get("trt_batch_size", 1),
-            trt_static_batch=kwargs.get("trt_static_batch", True),
-            trt_static_shape=kwargs.get("trt_static_shape", True),
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            opt_image_height=height,
+            opt_image_width=width,
+            transformer_precision=trt_transformer_precision,
         )
+
         torch.cuda.synchronize()
+
+        trt_ctx_manager.init_runtime()
+        # TODO: refactor. stream should be part of engine constructor maybe !!
+        for _, engine in engines.items():
+            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -299,7 +304,7 @@ def main(
         else:
             opts = None
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
+    if trt:
         trt_ctx_manager.stop_runtime()
 
 
