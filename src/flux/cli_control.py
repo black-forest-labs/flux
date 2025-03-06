@@ -11,8 +11,10 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import CannyImageEncoder, DepthImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_control, unpack
+
 try:
     from flux.trt.trt_manager import TRTManager
+
     TRT_AVAIABLE = True
 except:  # noqa: E722
     TRT_AVAIABLE = False
