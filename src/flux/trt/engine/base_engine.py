@@ -125,15 +125,15 @@ class Engine(BaseEngine):
 
         if not hasattr(self, "engine_bytes_cpu") or self.engine_bytes_cpu is None:
             # keep a cpu copy of the engine to reduce reloading time.
-            print(f"Loading TensorRT engine to cpu bytes: {self.trt_config.engine_path}")
+            print(f"[I] Loading TensorRT engine to cpu bytes: {self.trt_config.engine_path}")
             self.engine_bytes_cpu = bytes_from_path(self.trt_config.engine_path)
 
-        print(f"Loading TensorRT engine: {self.trt_config.engine_path}")
+        print(f"[I] Loading TensorRT engine: {self.trt_config.engine_path}")
         self.engine = engine_from_bytes(self.engine_bytes_cpu)
 
     def unload(self):
         if self.engine is not None:
-            print(f"Unloading TensorRT engine: {self.trt_config.engine_path}")
+            print(f"[I] Unloading TensorRT engine: {self.trt_config.engine_path}")
             del self.engine
             self.engine = None
             gc.collect()
