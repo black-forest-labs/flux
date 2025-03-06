@@ -180,9 +180,8 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
-    trt_onnx_dir: str | None = None,
-    trt_engine_dir: str | None = None,
-    trt_precision: str = "bf16",
+    trt: bool = False,
+    trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
 ):
     """
@@ -203,6 +202,7 @@ def main(
         add_sampling_metadata: Add the prompt to the image Exif metadata
         img_cond_path: path to conditioning image (jpeg/png/webp)
         trt: use TensorRT backend for optimized inference
+        trt_transformer_precision: specify transformer precision for inference
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -245,7 +245,7 @@ def main(
 
     # set lora scale
     if "lora" in name and lora_scale is not None:
-        assert not trt_onnx_dir and not trt_engine_dir, "TRT does not support LORA"
+        assert not trt, "TRT does not support LORA"
         for _, module in model.named_modules():
             if hasattr(module, "set_scale"):
                 module.set_scale(lora_scale)
@@ -257,24 +257,12 @@ def main(
     else:
         raise NotImplementedError()
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
-
-        if not TRT_AVAIABLE:
-            raise ModuleNotFoundError("tensorrt dependencies are needed. Follow README instruction to setup the tensorrt environment.")
-
-        if trt_precision == "bf16":
-            bf16, fp8, fp4 = True, False, False
-        elif trt_precision == "fp8":
-            bf16, fp8, fp4 = False, True, False
-        elif trt_precision == "fp4":
-            bf16, fp8, fp4 = False, False, True
-        else:
-            raise NotImplementedError(f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values.")
-
+    if trt:
         trt_ctx_manager = TRTManager(
-            bf16=bf16,
-            fp8=fp8,
-            fp4=fp4,
+            bf16=True,
+            device=torch_device,
+            static_batch=kwargs.get("static_batch", True),
+            static_shape=kwargs.get("static_shape", True),
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -286,15 +274,18 @@ def main(
                 "vae": ae.decoder.cpu(),
                 "vae_encoder": ae.encoder.cpu(),
             },
-            engine_dir=trt_engine_dir,
-            onnx_dir=trt_onnx_dir,
-            trt_image_height=height,
-            trt_image_width=width,
-            trt_batch_size=kwargs.get("trt_batch_size", 1),
-            trt_static_batch=kwargs.get("trt_static_batch", True),
-            trt_static_shape=kwargs.get("trt_static_shape", True),
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
+            opt_image_height=height,
+            opt_image_width=width,
+            transformer_precision=trt_transformer_precision,
         )
         torch.cuda.synchronize()
+
+        trt_ctx_manager.init_runtime()
+        # TODO: refactor. stream should be part of engine constructor maybe !!
+        for _, engine in engines.items():
+            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -404,8 +395,6 @@ def main(
         else:
             opts = None
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
-        trt_ctx_manager.stop_runtime()
 
 def app():
     Fire(main)
