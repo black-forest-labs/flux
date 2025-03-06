@@ -260,11 +260,14 @@ def main(
         raise NotImplementedError()
 
     if trt:
+        if not TRT_AVAIABLE:
+            raise ModuleNotFoundError(
+                "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
+            )
+
         trt_ctx_manager = TRTManager(
-            bf16=True,
-            device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=os.environ.get("TRT_T5_PRECISION", "bf16"),
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -278,16 +281,13 @@ def main(
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            opt_image_height=height,
-            opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            trt_image_height=height,
+            trt_image_width=width,
+            trt_batch_size=1,
+            trt_static_batch=kwargs.get("static_batch", True),
+            trt_static_shape=kwargs.get("static_shape", True),
         )
         torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
