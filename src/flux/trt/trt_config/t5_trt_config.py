@@ -81,6 +81,7 @@ class T5BaseConfig(TRTBaseConfig):
 
 
 @register_config(model_name="t5", precision="bf16")
+@register_config(model_name="t5", precision="fp8")
 @dataclass
 class T5Config(T5BaseConfig):
     model_name: str = "t5"
@@ -89,14 +90,3 @@ class T5Config(T5BaseConfig):
     trt_fp8: bool = False
     trt_fp4: bool = False
     trt_build_strongly_typed: bool = True
-
-
-@register_config(model_name="t5", precision="fp8")
-@dataclass
-class T5Fp8Config(T5BaseConfig):
-    model_name: str = "t5"
-    trt_tf32: bool = False
-    trt_bf16: bool = True
-    trt_fp8: bool = True
-    trt_fp4: bool = False
-    trt_build_strongly_typed: bool = False
