@@ -184,33 +184,30 @@ def main(
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
     if trt:
-        # offload to CPU to save memory
-        ae = ae.cpu()
-        model = model.cpu()
-        clip = clip.cpu()
-        t5 = t5.cpu()
-
-        torch.cuda.empty_cache()
+        if not TRT_AVAIABLE:
+            raise ModuleNotFoundError(
+                "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
+            )
 
         trt_ctx_manager = TRTManager(
-            bf16=True,
-            device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=os.environ.get("TRT_T5_PRECISION", "bf16"),
         )
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
-                "clip": clip,
-                "transformer": model,
-                "t5": t5,
-                "vae": ae.decoder,
+                "clip": clip.cpu(),
+                "transformer": model.cpu(),
+                "t5": t5.cpu(),
+                "vae": ae.decoder.cpu(),
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            opt_image_height=height,
-            opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            trt_image_height=height,
+            trt_image_width=width,
+            trt_batch_size=1,
+            trt_static_batch=kwargs.get("static_batch", True),
+            trt_static_shape=kwargs.get("static_shape", True),
         )
 
         torch.cuda.synchronize()
