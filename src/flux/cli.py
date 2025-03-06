@@ -15,7 +15,6 @@ try:
     TRT_AVAIABLE = True
 except:  # noqa: E722
     TRT_AVAIABLE = False
-
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 NSFW_THRESHOLD = 0.85
@@ -115,9 +114,8 @@ def main(
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
-    trt_onnx_dir: str | None = None,
-    trt_engine_dir: str | None = None,
-    trt_precision: str = "bf16",
+    trt: bool = False,
+    trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
 ):
     """
@@ -138,6 +136,7 @@ def main(
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
         trt: use TensorRT backend for optimized inference
+        trt_transformer_precision: specify transformer precision for inference
         kwargs: additional arguments for TensorRT support
     """
 
@@ -184,25 +183,16 @@ def main(
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
+    if trt:
         if not TRT_AVAIABLE:
             raise ModuleNotFoundError(
                 "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
             )
 
-        if trt_precision == "bf16":
-            bf16, fp8, fp4 = True, False, False
-        elif trt_precision == "fp8":
-            bf16, fp8, fp4 = False, True, False
-        elif trt_precision == "fp4":
-            bf16, fp8, fp4 = False, False, True
-        else:
-            raise NotImplementedError(
-                f"precision {trt_precision} is not supported. Only `bf16`, `fp8` or `fp4` are valid values."
-            )
-
-        trt_ctx_manager = TRTManager(bf16=bf16, fp8=fp8, fp4=fp4)
-
+        trt_ctx_manager = TRTManager(
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=os.environ.get("TRT_T5_PRECISION", "bf16"),
+        )
         ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
             models={
@@ -211,14 +201,15 @@ def main(
                 "t5": t5.cpu(),
                 "vae": ae.decoder.cpu(),
             },
-            engine_dir=trt_engine_dir,
-            onnx_dir=trt_onnx_dir,
+            engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
+            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
             trt_image_height=height,
             trt_image_width=width,
-            trt_batch_size=kwargs.get("trt_batch_size", 1),
-            trt_static_batch=kwargs.get("trt_static_batch", True),
-            trt_static_shape=kwargs.get("trt_static_shape", True),
+            trt_batch_size=1,
+            trt_static_batch=kwargs.get("static_batch", True),
+            trt_static_shape=kwargs.get("static_shape", True),
         )
+
         torch.cuda.synchronize()
 
         if not offload:
@@ -310,7 +301,7 @@ def main(
         else:
             opts = None
 
-    if trt_onnx_dir is not None and trt_engine_dir is not None:
+    if trt:
         trt_ctx_manager.stop_runtime()
 
 

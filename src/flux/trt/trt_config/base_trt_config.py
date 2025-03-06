@@ -218,18 +218,18 @@ class TRTBaseConfig:
         )
 
 
-def register_config(model_name: str, tf32=True, bf16=False, fp8=False, fp4=False):
+def register_config(model_name: str, precision: str):
     """Decorator to register a configuration class with specific flag conditions."""
 
     def decorator(cls):
-        key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
+        key = f"model={model_name}_dtype={precision}"
         registry[key] = cls
         return cls
 
     return decorator
 
 
-def get_config(model_name: str, tf32=True, bf16=True, fp8=False, fp4=False) -> TRTBaseConfig:
+def get_config(model_name: str, precision: str) -> TRTBaseConfig:
     """Retrieve the appropriate configuration instance based on current flags."""
-    key = f"model={model_name}_tf32={tf32}_bf16={bf16}_fp8={fp8}_fp4={fp4}"
+    key = f"model={model_name}_dtype={precision}"
     return registry[key]

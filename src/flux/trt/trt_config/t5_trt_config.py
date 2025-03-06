@@ -14,7 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from dataclasses import dataclass
+
+from tensorrt import __version__ as trt_version
+
 from flux.modules.conditioner import HFEmbedder
 from flux.trt.trt_config.base_trt_config import TRTBaseConfig, register_config
 
@@ -59,10 +63,25 @@ class T5BaseConfig(TRTBaseConfig):
             ]
         }
 
+    def _get_onnx_path(self) -> str:
+        # override base implementation to support transformer precision
+        return os.path.join(
+            self.onnx_dir,
+            self.model_name + ".opt",
+            self.precision,
+            "model.onnx",
+        )
 
-@register_config(model_name="t5", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="t5", tf32=True, bf16=False, fp8=False, fp4=True)
+    def _get_engine_path(self) -> str:
+        # override base implementation to support transformer precision
+        return os.path.join(
+            self.engine_dir,
+            f"{self.model_name}_{self.precision}.trt{trt_version}.plan",
+        )
+
+
+@register_config(model_name="t5", precision="bf16")
+@register_config(model_name="t5", precision="fp8")
 @dataclass
 class T5Config(T5BaseConfig):
     model_name: str = "t5"

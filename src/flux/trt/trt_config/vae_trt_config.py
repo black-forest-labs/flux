@@ -56,9 +56,7 @@ class VAEBaseConfig(TRTBaseConfig):
         super().__post_init__()
 
 
-@register_config(model_name="vae", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="vae", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="vae", tf32=True, bf16=False, fp8=False, fp4=True)
+@register_config(model_name="vae", precision="bf16")
 @dataclass
 class VAEDecoderConfig(VAEBaseConfig):
     model_name: str = "vae"
@@ -150,9 +148,7 @@ class VAEDecoderConfig(VAEBaseConfig):
             ]
         }
 
-@register_config(model_name="vae_encoder", tf32=True, bf16=True, fp8=False, fp4=False)
-@register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=True, fp4=False)
-@register_config(model_name="vae_encoder", tf32=True, bf16=False, fp8=False, fp4=True)
+@register_config(model_name="vae_encoder", precision="bf16")
 @dataclass
 class VAEEncoderConfig(VAEBaseConfig):
     model_name: str = "vae_encoder"

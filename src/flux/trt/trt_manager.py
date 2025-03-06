@@ -38,6 +38,8 @@ from flux.trt.trt_config import (
 )
 
 TRT_LOGGER = trt.Logger()
+VALID_TRANSFORMER_PRECISIONS = {"bf16", "fp8", "fp4"}
+VALID_T5_PRECISIONS = {"bf16", "fp8"}
 
 
 class TRTManager:
@@ -53,23 +55,39 @@ class TRTManager:
 
     def __init__(
         self,
+        trt_transformer_precision: str,
+        trt_t5_precision: str,
         max_batch=2,
-        tf32=True,
-        bf16=False,
-        fp8=False,
-        fp4=False,
         verbose=False,
     ):
-        assert bf16 + fp8 + fp4 == 1, "only one model type can be active"
         self.max_batch = max_batch
-        self.tf32 = tf32
-        self.bf16 = bf16
-        self.fp8 = fp8
-        self.fp4 = fp4
+        self.precisions = self._parse_models_precisions(
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=trt_t5_precision,
+        )
         self.verbose = verbose
         self.runtime: trt.Runtime = None
 
         assert torch.cuda.is_available(), "No cuda device available"
+
+    @staticmethod
+    def _parse_models_precisions(trt_transformer_precision: str, trt_t5_precision: str) -> dict[str, str]:
+        precisions = {
+            "clip": "bf16",
+            "vae": "bf16",
+            "vae_encoder": "bf16",
+        }
+
+        assert (
+            trt_transformer_precision in VALID_TRANSFORMER_PRECISIONS
+        ), f"Invalid precision for flux-transformer `{trt_transformer_precision}`. Possible value are {VALID_TRANSFORMER_PRECISIONS}"
+        precisions["transformer"] = trt_transformer_precision
+
+        assert (
+            trt_t5_precision in VALID_T5_PRECISIONS
+        ), f"Invalid precision for T5 `{trt_t5_precision}`. Possible value are {VALID_T5_PRECISIONS}"
+        precisions["t5"] = trt_t5_precision
+        return precisions
 
     @staticmethod
     def _create_directories(engine_dir: str):
@@ -91,13 +109,7 @@ class TRTManager:
     ) -> dict[str, TRTBaseConfig]:
         trt_configs = {}
         for model_name, model in models.items():
-            config_cls = get_config(
-                model_name=model_name,
-                tf32=self.tf32,
-                bf16=self.bf16,
-                fp8=self.fp8,
-                fp4=self.fp4,
-            )
+            config_cls = get_config(model_name=model_name, precision=self.precisions[model_name])
 
             trt_config = config_cls.from_model(
                 model=model,
@@ -105,7 +117,7 @@ class TRTManager:
                 onnx_dir=onnx_dir,
                 engine_dir=engine_dir,
                 trt_verbose=self.verbose,
-                precision="fp4" if self.fp4 else "fp8" if self.fp8 else "bf16",
+                precision=self.precisions[model_name],
                 trt_static_batch=trt_static_batch,
                 trt_static_shape=trt_static_shape,
                 trt_enable_all_tactics=trt_enable_all_tactics,
@@ -157,9 +169,7 @@ class TRTManager:
             verbose=trt_config.trt_verbose,
         )
 
-        # Reclaim GPU memory from torch cache
-        gc.collect()
-        torch.cuda.empty_cache()
+        TRTManager._clean_memory()
 
     def load_engines(
         self,
@@ -177,6 +187,7 @@ class TRTManager:
         trt_builder_optimization_level=3,
         trt_precision_constraints="none",
     ) -> dict[str, BaseEngine]:
+        self._clean_memory()
         self._create_directories(engine_dir=engine_dir)
 
         trt_configs = self._get_trt_configs(
@@ -201,8 +212,6 @@ class TRTManager:
                 image_width=trt_image_width,
             )
 
-        gc.collect()
-        torch.cuda.empty_cache()
         self.init_runtime()
         # load TRT engines
         engines = {}
@@ -219,9 +228,13 @@ class TRTManager:
                 decoder=engines.pop("vae"),
                 encoder=engines.pop("vae_encoder", None),
             )
+        self._clean_memory()
+        return engines
+
+    @staticmethod
+    def _clean_memory():
         gc.collect()
         torch.cuda.empty_cache()
-        return engines
 
     @staticmethod
     def calculate_max_device_memory(engines: dict[str, BaseEngine]) -> int:
