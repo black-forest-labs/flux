@@ -136,6 +136,7 @@ def main(
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
         trt: use TensorRT backend for optimized inference
+        trt_transformer_precision: specify transformer precision for inference
         kwargs: additional arguments for TensorRT support
     """
 
