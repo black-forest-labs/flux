@@ -397,6 +397,9 @@ def main(
         else:
             opts = None
 
+    if trt:
+        trt_ctx_manager.stop_runtime()
+
 
 def app():
     Fire(main)
