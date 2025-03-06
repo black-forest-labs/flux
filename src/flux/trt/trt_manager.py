@@ -169,9 +169,7 @@ class TRTManager:
             verbose=trt_config.trt_verbose,
         )
 
-        # Reclaim GPU memory from torch cache
-        gc.collect()
-        torch.cuda.empty_cache()
+        TRTManager._clean_memory()
 
     def load_engines(
         self,
@@ -214,7 +212,6 @@ class TRTManager:
                 image_width=trt_image_width,
             )
 
-        self._clean_memory()
         self.init_runtime()
         # load TRT engines
         engines = {}
