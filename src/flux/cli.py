@@ -212,11 +212,6 @@ def main(
 
         torch.cuda.synchronize()
 
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
-
         if not offload:
             for _, engine in engines.items():
                 engine.load()
