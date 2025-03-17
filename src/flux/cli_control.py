@@ -176,6 +176,7 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
     lora_scale: float | None = 0.85,
+    compile: bool = False,
     trt: bool = False,
     trt_transformer_precision: str = "bf16",
     **kwargs: dict | None,
@@ -197,6 +198,7 @@ def main(
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
         img_cond_path: path to conditioning image (jpeg/png/webp)
+        compile: use torch.compile for optimized inference
         trt: use TensorRT backend for optimized inference
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
@@ -252,7 +254,12 @@ def main(
     else:
         raise NotImplementedError()
 
-    if trt:
+    if compile:
+        t5 = torch.compile(t5)
+        clip = torch.compile(clip)
+        model = torch.compile(model)
+        ae.decode = torch.compile(ae.decode)
+    elif trt:
         trt_ctx_manager = TRTManager(
             bf16=True,
             device=torch_device,

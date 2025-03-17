@@ -131,6 +131,7 @@ def main(
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
+        compile: use torch.compile for optimized inference
         trt: use TensorRT backend for optimized inference
         kwargs: additional arguments for TensorRT support
     """
@@ -178,7 +179,12 @@ def main(
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
 
-    if trt:
+    if compile:
+        t5 = torch.compile(t5)
+        clip = torch.compile(clip)
+        model = torch.compile(model)
+        ae.decode = torch.compile(ae.decode)
+    elif trt:
         # offload to CPU to save memory
         ae = ae.cpu()
         model = model.cpu()
