@@ -1,4 +1,5 @@
+runpod
 torch
 transformers
 diffusers
-runpod
+# Добавь другие зависимости, если они используются в твоём коде
