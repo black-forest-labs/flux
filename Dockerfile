@@ -7,5 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Не запускаем python handler.py — это делает RunPod
-CMD ["python3"]
+CMD ["python", "handler.py"]
+
