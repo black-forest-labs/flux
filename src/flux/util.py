@@ -355,11 +355,42 @@ def load_flow_model(
 
 def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
-    return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
+    
+    # 检查本地模型路径
+    local_t5_path = os.getenv("T5_MODEL_PATH")
+    if not local_t5_path:
+        # 尝试默认本地路径
+        default_local_path = "/home/zcx/codes/flux1dev/text_encoder_2"
+        if os.path.exists(default_local_path) and os.path.exists(os.path.join(default_local_path, "config.json")):
+            local_t5_path = default_local_path
+            print(f"使用本地T5模型: {local_t5_path}")
+        else:
+            # 回退到从 Hugging Face 下载
+            print("未找到本地T5模型，将从 Hugging Face 下载...")
+            local_t5_path = "google/t5-v1_1-xxl"
+    else:
+        print(f"使用环境变量指定的T5模型路径: {local_t5_path}")
+    
+    return HFEmbedder(local_t5_path, max_length=max_length, torch_dtype=torch.bfloat16).to(device)
 
 
 def load_clip(device: str | torch.device = "cuda") -> HFEmbedder:
-    return HFEmbedder("openai/clip-vit-large-patch14", max_length=77, torch_dtype=torch.bfloat16).to(device)
+    # 检查本地模型路径
+    local_clip_path = os.getenv("CLIP_MODEL_PATH")
+    if not local_clip_path:
+        # 尝试默认本地路径
+        default_local_path = "/home/zcx/codes/flux1dev/text_encoder"
+        if os.path.exists(default_local_path) and os.path.exists(os.path.join(default_local_path, "config.json")):
+            local_clip_path = default_local_path
+            print(f"使用本地CLIP模型: {local_clip_path}")
+        else:
+            # 回退到从 Hugging Face 下载
+            print("未找到本地CLIP模型，将从 Hugging Face 下载...")
+            local_clip_path = "openai/clip-vit-large-patch14"
+    else:
+        print(f"使用环境变量指定的CLIP模型路径: {local_clip_path}")
+    
+    return HFEmbedder(local_clip_path, max_length=77, torch_dtype=torch.bfloat16).to(device)
 
 
 def load_ae(name: str, device: str | torch.device = "cuda", hf_download: bool = True) -> AutoEncoder:
