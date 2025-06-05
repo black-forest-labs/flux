@@ -39,7 +39,7 @@ python -m src.flux.cli_control --loop --name <name>
 
 where `name` is one of `flux-dev-canny`, `flux-dev-depth`, `flux-dev-canny-lora`, or `flux-dev-depth-lora`.
 
-### TRT engine infernece
+### TRT engine inference
 
 You may also download ONNX export of [FLUX.1 Depth \[dev\]](https://huggingface.co/black-forest-labs/FLUX.1-Depth-dev-onnx) and [FLUX.1 Canny \[dev\]](https://huggingface.co/black-forest-labs/FLUX.1-Canny-dev-onnx). We provide exports in BF16, FP8, and FP4 precision. Note that you need to install the repository with TensorRT support as outlined [here](../README.md).
 
