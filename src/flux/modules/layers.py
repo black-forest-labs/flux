@@ -179,7 +179,7 @@ class DoubleStreamBlock(nn.Module):
         v = torch.cat((txt_v, img_v), dim=2)
 
         attn = attention(q, k, v, pe=pe)
-        txt_attn, img_attn = attn[:, : txt.shape[1]], attn[:, txt.shape[1] :]
+        txt_attn, img_attn = attn.split((txt.shape[1], img.shape[1]), dim=1)
 
         # calculate the img bloks
         img = img + img_mod1.gate * self.img_attn.proj(img_attn)
