@@ -19,13 +19,15 @@ dependencies = [
   "protobuf",
   "requests",
   "invisible-watermark",
-  "ruff == 0.6.8",
 ]
 
 [project.optional-dependencies]
 torch = [
   "torch == 2.5.1",
   "torchvision",
+]
+lint = [
+  "ruff == 0.6.8",
 ]
 streamlit = [
   "streamlit",
