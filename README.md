@@ -99,6 +99,114 @@ $ python -m flux.api --prompt="A beautiful beach" save outputs/api
 $ python -m flux.api --prompt="A beautiful beach" image show
 ```
 
+## Docker Usage
+
+We provide Docker support for both local model inference and API access. This makes it easy to run FLUX without installing dependencies directly on your system.
+
+### Installation
+
+1. Build the Docker image:
+```bash
+# Clone the repository
+git clone https://github.com/black-forest-labs/flux
+cd flux
+
+# For Apple Silicon (M1/M2/M3)
+docker build --platform linux/arm64 -t flux-project -f docker/Dockerfile docker/
+
+# For Intel/AMD with NVIDIA GPU
+docker build --platform linux/amd64 -t flux-project -f docker/Dockerfile docker/
+```
+
+2. Install the CLI tool:
+```bash
+# Make the script executable
+chmod +x docker/flux-cli.sh
+
+# Option 1: Create a symbolic link (recommended)
+sudo ln -s "$(pwd)/docker/flux-cli.sh" /usr/local/bin/flux-cli
+
+# Option 2: Copy the script (alternative)
+sudo cp docker/flux-cli.sh /usr/local/bin/flux-cli
+
+# Verify installation
+flux-cli --help
+```
+
+#### Apple Silicon Macs
+
+```bash
+# API usage (recommended for M-series Macs)
+flux-cli --api-key "your-api-key" \
+    --prompt "A beautiful sunset" \
+    --output sunset.jpg
+
+# Local model usage
+flux-cli --local \
+    --model flux.1-schnell \
+    --prompt "A beautiful forest" \
+    --output forest.jpg
+```
+
+#### NVIDIA GPU Systems
+
+```bash
+# API usage
+flux-cli --api-key "your-api-key" \
+    --prompt "A beautiful sunset" \
+    --output sunset.jpg
+
+# Local model usage with GPU acceleration
+flux-cli --local \
+    --model flux.1-schnell \
+    --prompt "A beautiful forest" \
+    --output forest.jpg \
+    --gpu
+```
+
+### Output Formats
+
+The CLI supports multiple output formats:
+
+```bash
+# Save to file (default)
+flux-cli --api-key "your-key" --prompt "prompt" --output image.jpg
+
+# Get URL (API mode only)
+flux-cli --api-key "your-key" --prompt "prompt" --format url
+
+# Display image directly
+flux-cli --api-key "your-key" --prompt "prompt" --format image
+```
+
+### Directory Structure
+
+FLUX CLI uses the following directory structure by default:
+```
+~/.flux/
+├── models/    # Cache for downloaded models
+└── outputs/   # Default location for generated images
+```
+
+You can customize these locations using environment variables:
+```bash
+export FLUX_HOME=/path/to/flux/data    # Base directory
+export FLUX_OUTPUTS=/path/to/outputs   # Output directory
+export FLUX_MODELS=/path/to/models     # Models directory
+```
+
+The CLI can be run from any directory and supports both absolute and relative output paths:
+```bash
+# Save to current directory
+flux-cli --prompt "A sunset" --output ./sunset.jpg
+
+# Save to specific location
+flux-cli --prompt "A forest" --output /path/to/images/forest.jpg
+
+# Save to default outputs directory
+flux-cli --prompt "A beach" --output beach.jpg
+```
+
 ## Citation
 
 If you find the provided code or models useful for your research, consider citing them as:
