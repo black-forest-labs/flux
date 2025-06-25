@@ -7,12 +7,13 @@ from glob import iglob
 import torch
 from cuda import cudart
 from fire import Fire
-from transformers import pipeline
-
+from flux.hpu_utils import load_model_to_hpu, get_dtype
 from flux.modules.image_embedders import CannyImageEncoder, DepthImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_control, unpack
 from flux.trt.trt_manager import TRTManager
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import get_device_initial
+from transformers import pipeline
 
 
 @dataclass
@@ -167,7 +168,7 @@ def main(
     height: int = 1024,
     seed: int | None = None,
     prompt: str = "a robot made out of gold",
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = None,
     num_steps: int = 50,
     loop: bool = False,
     guidance: float | None = None,
@@ -199,6 +200,7 @@ def main(
         img_cond_path: path to conditioning image (jpeg/png/webp)
         trt: use TensorRT backend for optimized inference
     """
+    device = get_device_initial(device)
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
     assert name in [
@@ -320,6 +322,7 @@ def main(
                     if hasattr(module, "set_scale"):
                         module.set_scale(opts.lora_scale)
 
+    dtype = get_dtype(device)
     while opts is not None:
         if opts.seed is None:
             opts.seed = rng.seed()
@@ -332,9 +335,11 @@ def main(
             opts.height,
             opts.width,
             device=torch_device,
-            dtype=torch.bfloat16,
+            dtype=dtype,
             seed=opts.seed,
         )
+        if str(device) == "hpu":
+            x = load_model_to_hpu(x)
         opts.seed = None
         if offload:
             t5, clip, ae = t5.to(torch_device), clip.to(torch_device), ae.to(torch_device)
@@ -350,7 +355,7 @@ def main(
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # offload TEs and AE to CPU, load model to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             t5, clip, ae = t5.cpu(), clip.cpu(), ae.cpu()
             torch.cuda.empty_cache()
             model = model.to(torch_device)
@@ -359,14 +364,14 @@ def main(
         x = denoise(model, **inp, timesteps=timesteps, guidance=opts.guidance)
 
         # offload model, load autoencoder to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             model.cpu()
             torch.cuda.empty_cache()
             ae.decoder.to(x.device)
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.height, opts.width)
-        with torch.autocast(device_type=torch_device.type, dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch_device.type, dtype=dtype):
             x = ae.decode(x)
 
         if torch.cuda.is_available():

@@ -99,6 +99,28 @@ $ python -m flux.api --prompt="A beautiful beach" save outputs/api
 $ python -m flux.api --prompt="A beautiful beach" image show
 ```
 
+
+## Intel® Gaudi® HPU Usage
+
+### Build the Docker Image
+To use Intel® Gaudi® HPU for running this notebook, start by building a Docker image with the appropriate environment setup.  
+
+```bash
+docker build -t flux_hpu:latest -f Dockerfile.hpu .
+```  
+
+In the `Dockerfile.hpu`, we use the `vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.3.1:latest` base image. Ensure that the version matches your setup.  
+See the [PyTorch Docker Images for the Intel® Gaudi® Accelerator](https://developer.habana.ai/catalog/pytorch-container/) for more information.  
+
+### Run the Container  
+
+```bash
+docker run -it --runtime=habana flux_hpu:latest
+```  
+
+Optionally, you can add a mapping volume (`-v`) to access your project directory inside the container. Add the flag `-v /path/to/your/project:/workspace/project` to the `docker run` command.  
+Replace `/path/to/your/project` with the path to your project directory on your local machine.  
+
 ## Citation
 
 If you find the provided code or models useful for your research, consider citing them as:

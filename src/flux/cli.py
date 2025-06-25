@@ -12,6 +12,8 @@ from transformers import pipeline
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
 from flux.trt.trt_manager import TRTManager
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image, get_device_initial
+from flux.hpu_utils import load_model_to_hpu, get_dtype
 
 NSFW_THRESHOLD = 0.85
 
@@ -103,7 +105,7 @@ def main(
         "a photo of a forest with mist swirling around the tree trunks. The word "
         '"FLUX" is painted over it in big, red brush strokes with visible texture'
     ),
-    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    device: str = None,
     num_steps: int | None = None,
     loop: bool = False,
     guidance: float = 3.5,
@@ -135,6 +137,7 @@ def main(
         kwargs: additional arguments for TensorRT support
     """
 
+    device = get_device_initial(device)
     prompt = prompt.split("|")
     if len(prompt) == 1:
         prompt = prompt[0]
@@ -243,6 +246,7 @@ def main(
     if loop:
         opts = parse_prompt(opts)
 
+    dtype = get_dtype(str(device))
     while opts is not None:
         if opts.seed is None:
             opts.seed = rng.seed()
@@ -255,11 +259,14 @@ def main(
             opts.height,
             opts.width,
             device=torch_device,
-            dtype=torch.bfloat16,
+            dtype=dtype,
             seed=opts.seed,
         )
+        if str(device) == "hpu":
+            x = load_model_to_hpu(x)
+
         opts.seed = None
-        if offload:
+        if offload and str(device) != "hpu":
             ae = ae.cpu()
             torch.cuda.empty_cache()
             t5, clip = t5.to(torch_device), clip.to(torch_device)
@@ -267,23 +274,26 @@ def main(
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # offload TEs to CPU, load model to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             t5, clip = t5.cpu(), clip.cpu()
             torch.cuda.empty_cache()
             model = model.to(torch_device)
+
+        if str(device) == "hpu":
+            model = load_model_to_hpu(model)
 
         # denoise initial noise
         x = denoise(model, **inp, timesteps=timesteps, guidance=opts.guidance)
 
         # offload model, load autoencoder to gpu
-        if offload:
+        if offload and str(device) != "hpu":
             model.cpu()
             torch.cuda.empty_cache()
             ae.decoder.to(x.device)
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.height, opts.width)
-        with torch.autocast(device_type=torch_device.type, dtype=torch.bfloat16):
+        with torch.autocast(device_type=torch_device.type, dtype=dtype):
             x = ae.decode(x)
 
         if torch.cuda.is_available():

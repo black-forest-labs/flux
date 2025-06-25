@@ -1,11 +1,12 @@
-import math
 from dataclasses import dataclass
 
 import torch
 from einops import rearrange
 from torch import Tensor, nn
 
+import math
 from flux.math import attention, rope
+from flux.hpu_utils import load_model_to_hpu
 
 
 class EmbedND(nn.Module):
@@ -36,9 +37,12 @@ def timestep_embedding(t: Tensor, dim, max_period=10000, time_factor: float = 10
     """
     t = time_factor * t
     half = dim // 2
-    freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half).to(
-        t.device
-    )
+
+    freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half)
+    if str(t.device) == "hpu":
+        freqs = load_model_to_hpu(freqs)
+    else:
+        freqs = freqs.to(t.device)
 
     args = t[:, None].float() * freqs[None]
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)

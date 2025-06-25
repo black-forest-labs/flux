@@ -91,6 +91,7 @@ class FluxGenerator:
             dtype=torch.bfloat16,
             seed=opts.seed,
         )
+
         timesteps = get_schedule(
             opts.num_steps,
             x.shape[-1] * x.shape[-2] // 4,
