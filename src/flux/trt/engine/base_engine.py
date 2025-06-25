@@ -24,6 +24,8 @@ from cuda import cudart
 from polygraphy.backend.common import bytes_from_path
 from polygraphy.backend.trt import engine_from_bytes
 
+from flux.trt.trt_config import TRTBaseConfig
+
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
 
@@ -57,12 +59,9 @@ class BaseEngine(ABC):
         pass
 
     @abstractmethod
-    def to(self, device: str) -> "BaseEngine":
+    def to(self, device: str | torch.device) -> "BaseEngine":
         pass
 
-    @abstractmethod
-    def set_stream(self, stream):
-        pass
 
     @abstractmethod
     def load(self):
@@ -80,10 +79,11 @@ class BaseEngine(ABC):
 class Engine(BaseEngine):
     def __init__(
         self,
-        engine_path: str,
+        trt_config: TRTBaseConfig,
+        stream: cudart.cudaStream_t,
     ):
-        self.engine_path = engine_path
-        self.stream = None
+        self.trt_config = trt_config
+        self.stream = stream
         self.engine: trt.ICudaEngine | None = None
         self.context = None
         self.tensors = OrderedDict()
@@ -120,29 +120,29 @@ class Engine(BaseEngine):
 
     def load(self):
         if self.engine is not None:
-            print(f"[W]: Engine {self.engine_path} already loaded, skip reloading")
+            print(f"[W]: Engine {self.trt_config.engine_path} already loaded, skip reloading")
             return
 
         if not hasattr(self, "engine_bytes_cpu") or self.engine_bytes_cpu is None:
             # keep a cpu copy of the engine to reduce reloading time.
-            print(f"Loading TensorRT engine to cpu bytes: {self.engine_path}")
-            self.engine_bytes_cpu = bytes_from_path(self.engine_path)
+            print(f"[I] Loading TensorRT engine to cpu bytes: {self.trt_config.engine_path}")
+            self.engine_bytes_cpu = bytes_from_path(self.trt_config.engine_path)
 
-        print(f"Loading TensorRT engine: {self.engine_path}")
+        print(f"[I] Loading TensorRT engine: {self.trt_config.engine_path}")
         self.engine = engine_from_bytes(self.engine_bytes_cpu)
 
     def unload(self):
         if self.engine is not None:
-            print(f"Unloading TensorRT engine: {self.engine_path}")
+            print(f"[I] Unloading TensorRT engine: {self.trt_config.engine_path}")
             del self.engine
             self.engine = None
             gc.collect()
         else:
-            print(f"[W]: Unload an unloaded engine {self.engine_path}, skip unloading")
+            print(f"[W]: Unload an unloaded engine {self.trt_config.engine_path}, skip unloading")
 
     def activate(
         self,
-        device: str,
+        device: str | torch.device,
         device_memory: int | None = None,
     ):
         self.device = device
@@ -165,7 +165,7 @@ class Engine(BaseEngine):
     def allocate_buffers(
         self,
         shape_dict: dict[str, tuple],
-        device="cuda",
+        device: str | torch.device = "cuda",
     ):
         for binding in range(self.engine.num_io_tensors):
             tensor_name = self.engine.get_tensor_name(binding)

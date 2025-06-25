@@ -11,7 +11,13 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import CannyImageEncoder, DepthImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_control, unpack
-from flux.trt.trt_manager import TRTManager
+
+try:
+    from flux.trt.trt_manager import TRTManager
+
+    TRT_AVAIABLE = True
+except:  # noqa: E722
+    TRT_AVAIABLE = False
 from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
 
 
@@ -198,6 +204,7 @@ def main(
         add_sampling_metadata: Add the prompt to the image Exif metadata
         img_cond_path: path to conditioning image (jpeg/png/webp)
         trt: use TensorRT backend for optimized inference
+        trt_transformer_precision: specify transformer precision for inference
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -240,7 +247,7 @@ def main(
 
     # set lora scale
     if "lora" in name and lora_scale is not None:
-        assert not trt, "TRT does not support LORA yet"
+        assert not trt, "TRT does not support LORA"
         for _, module in model.named_modules():
             if hasattr(module, "set_scale"):
                 module.set_scale(lora_scale)
@@ -253,11 +260,14 @@ def main(
         raise NotImplementedError()
 
     if trt:
+        if not TRT_AVAIABLE:
+            raise ModuleNotFoundError(
+                "TRT dependencies are needed. Follow README instruction to setup the tensorrt environment."
+            )
+
         trt_ctx_manager = TRTManager(
-            bf16=True,
-            device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=os.environ.get("TRT_T5_PRECISION", "bf16"),
         )
         ae.decoder.params = ae.params
         ae.encoder.params = ae.params
@@ -271,16 +281,13 @@ def main(
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
             onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            opt_image_height=height,
-            opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            trt_image_height=height,
+            trt_image_width=width,
+            trt_batch_size=1,
+            trt_static_batch=kwargs.get("static_batch", True),
+            trt_static_shape=kwargs.get("static_shape", True),
         )
         torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
 
         if not offload:
             for _, engine in engines.items():
@@ -389,6 +396,9 @@ def main(
                             module.set_scale(opts.lora_scale)
         else:
             opts = None
+
+    if trt:
+        trt_ctx_manager.stop_runtime()
 
 
 def app():
