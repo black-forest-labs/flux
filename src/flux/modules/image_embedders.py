@@ -1,5 +1,3 @@
-import os
-
 import cv2
 import numpy as np
 import torch
@@ -69,13 +67,11 @@ class ReduxImageEncoder(nn.Module):
     def __init__(
         self,
         device,
+        redux_path: str,
         redux_dim: int = 1152,
         txt_in_features: int = 4096,
-        redux_path: str | None = os.getenv("FLUX_REDUX"),
         dtype=torch.bfloat16,
     ) -> None:
-        assert redux_path is not None, "Redux path must be provided"
-
         super().__init__()
 
         self.redux_dim = redux_dim

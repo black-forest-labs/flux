@@ -11,6 +11,7 @@ from .model import Flux
 from .modules.autoencoder import AutoEncoder
 from .modules.conditioner import HFEmbedder
 from .modules.image_embedders import CannyImageEncoder, DepthImageEncoder, ReduxImageEncoder
+from .util import PREFERED_KONTEXT_RESOLUTIONS
 
 
 def get_noise(
@@ -27,10 +28,9 @@ def get_noise(
         # allow for packing
         2 * math.ceil(height / 16),
         2 * math.ceil(width / 16),
-        device=device,
         dtype=dtype,
-        generator=torch.Generator(device=device).manual_seed(seed),
-    )
+        generator=torch.Generator(device="cpu").manual_seed(seed),
+    ).to(device)
 
 
 def prepare(t5: HFEmbedder, clip: HFEmbedder, img: Tensor, prompt: str | list[str]) -> dict[str, Tensor]:
@@ -85,7 +85,7 @@ def prepare_control(
 
     width = w * 8
     height = h * 8
-    img_cond = img_cond.resize((width, height), Image.LANCZOS)
+    img_cond = img_cond.resize((width, height), Image.Resampling.LANCZOS)
     img_cond = np.array(img_cond)
     img_cond = torch.from_numpy(img_cond).float() / 127.5 - 1.0
     img_cond = rearrange(img_cond, "h w c -> 1 c h w")
@@ -207,6 +207,73 @@ def prepare_redux(
     }
 
 
+def prepare_kontext(
+    t5: HFEmbedder,
+    clip: HFEmbedder,
+    prompt: str | list[str],
+    ae: AutoEncoder,
+    img_cond_path: str,
+    seed: int,
+    device: torch.device,
+    target_width: int | None = None,
+    target_height: int | None = None,
+    bs: int = 1,
+) -> tuple[dict[str, Tensor], int, int]:
+    # load and encode the conditioning image
+    if bs == 1 and not isinstance(prompt, str):
+        bs = len(prompt)
+
+    img_cond = Image.open(img_cond_path).convert("RGB")
+    width, height = img_cond.size
+    aspect_ratio = width / height
+    # Kontext is trained on specific resolutions, using one of them is recommended
+    _, width, height = min((abs(aspect_ratio - w / h), w, h) for w, h in PREFERED_KONTEXT_RESOLUTIONS)
+    width = 2 * int(width / 16)
+    height = 2 * int(height / 16)
+
+    img_cond = img_cond.resize((8 * width, 8 * height), Image.Resampling.LANCZOS)
+    img_cond = np.array(img_cond)
+    img_cond = torch.from_numpy(img_cond).float() / 127.5 - 1.0
+    img_cond = rearrange(img_cond, "h w c -> 1 c h w")
+    img_cond_orig = img_cond.clone()
+
+    with torch.no_grad():
+        img_cond = ae.encode(img_cond.to(device))
+
+    img_cond = img_cond.to(torch.bfloat16)
+    img_cond = rearrange(img_cond, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
+    if img_cond.shape[0] == 1 and bs > 1:
+        img_cond = repeat(img_cond, "1 ... -> bs ...", bs=bs)
+
+    # image ids are the same as base image with the first dimension set to 1
+    # instead of 0
+    img_cond_ids = torch.zeros(height // 2, width // 2, 3)
+    img_cond_ids[..., 0] = 1
+    img_cond_ids[..., 1] = img_cond_ids[..., 1] + torch.arange(height // 2)[:, None]
+    img_cond_ids[..., 2] = img_cond_ids[..., 2] + torch.arange(width // 2)[None, :]
+    img_cond_ids = repeat(img_cond_ids, "h w c -> b (h w) c", b=bs)
+
+    if target_width is None:
+        target_width = 8 * width
+    if target_height is None:
+        target_height = 8 * height
+
+    img = get_noise(
+        1,
+        target_height,
+        target_width,
+        device=device,
+        dtype=torch.bfloat16,
+        seed=seed,
+    )
+
+    return_dict = prepare(t5, clip, img, prompt)
+    return_dict["img_cond_seq"] = img_cond
+    return_dict["img_cond_seq_ids"] = img_cond_ids.to(device)
+    return_dict["img_cond_orig"] = img_cond_orig
+    return return_dict, target_height, target_width
+
+
 def time_shift(mu: float, sigma: float, t: Tensor):
     return math.exp(mu) / (math.exp(mu) + (1 / t - 1) ** sigma)
 
@@ -249,22 +316,37 @@ def denoise(
     # sampling parameters
     timesteps: list[float],
     guidance: float = 4.0,
-    # extra img tokens
+    # extra img tokens (channel-wise)
     img_cond: Tensor | None = None,
+    # extra img tokens (sequence-wise)
+    img_cond_seq: Tensor | None = None,
+    img_cond_seq_ids: Tensor | None = None,
 ):
     # this is ignored for schnell
     guidance_vec = torch.full((img.shape[0],), guidance, device=img.device, dtype=img.dtype)
     for t_curr, t_prev in zip(timesteps[:-1], timesteps[1:]):
         t_vec = torch.full((img.shape[0],), t_curr, dtype=img.dtype, device=img.device)
+        img_input = img
+        img_input_ids = img_ids
+        if img_cond is not None:
+            img_input = torch.cat((img, img_cond), dim=-1)
+        if img_cond_seq is not None:
+            assert (
+                img_cond_seq_ids is not None
+            ), "You need to provide either both or neither of the sequence conditioning"
+            img_input = torch.cat((img_input, img_cond_seq), dim=1)
+            img_input_ids = torch.cat((img_input_ids, img_cond_seq_ids), dim=1)
         pred = model(
-            img=torch.cat((img, img_cond), dim=-1) if img_cond is not None else img,
-            img_ids=img_ids,
+            img=img_input,
+            img_ids=img_input_ids,
             txt=txt,
             txt_ids=txt_ids,
             y=vec,
             timesteps=t_vec,
             guidance=guidance_vec,
         )
+        if img_input_ids is not None:
+            pred = pred[:, : img.shape[1]]
 
         img = img + (t_prev - t_curr) * pred
 

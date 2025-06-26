@@ -10,7 +10,14 @@ from transformers import pipeline
 
 from flux.modules.image_embedders import ReduxImageEncoder
 from flux.sampling import denoise, get_noise, get_schedule, prepare_redux, unpack
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import (
+    get_checkpoint_path,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+    save_image,
+)
 
 
 @dataclass
@@ -46,7 +53,7 @@ def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
             options.width = 16 * (int(width) // 16)
             print(
                 f"Setting resolution to {options.width} x {options.height} "
-                f"({options.height *options.width/1e6:.2f}MP)"
+                f"({options.height * options.width / 1e6:.2f}MP)"
             )
         elif prompt.startswith("/h"):
             if prompt.count(" ") != 1:
@@ -56,7 +63,7 @@ def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
             options.height = 16 * (int(height) // 16)
             print(
                 f"Setting resolution to {options.width} x {options.height} "
-                f"({options.height *options.width/1e6:.2f}MP)"
+                f"({options.height * options.width / 1e6:.2f}MP)"
             )
         elif prompt.startswith("/g"):
             if prompt.count(" ") != 1:
@@ -142,30 +149,31 @@ def main(
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/robot.webp",
+    track_usage: bool = False,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
     single image.
 
     Args:
-        name: Name of the model to load
+        name: Name of the base model to use (either 'flux-dev' or 'flux-schnell')
         height: height of the sample in pixels (should be a multiple of 16)
         width: width of the sample in pixels (should be a multiple of 16)
         seed: Set a seed for sampling
-        output_name: where to save the output image, `{idx}` will be replaced
-            by the index of the sample
-        prompt: Prompt used for sampling
         device: Pytorch device
         num_steps: number of sampling steps (default 4 for schnell, 50 for guidance distilled)
         loop: start an interactive session and sample multiple times
         guidance: guidance value used for guidance distillation
+        offload: offload models to CPU when not in use
+        output_dir: where to save the output images
         add_sampling_metadata: Add the prompt to the image Exif metadata
         img_cond_path: path to conditioning image (jpeg/png/webp)
+        track_usage: track usage of the model for licensing purposes
     """
+
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
-    if name not in configs:
-        available = ", ".join(configs.keys())
+    if name not in (available := ["flux-dev", "flux-schnell"]):
         raise ValueError(f"Got unknown model name: {name}, chose from {available}")
 
     torch_device = torch.device(device)
@@ -188,7 +196,12 @@ def main(
     clip = load_clip(torch_device)
     model = load_flow_model(name, device="cpu" if offload else torch_device)
     ae = load_ae(name, device="cpu" if offload else torch_device)
-    img_embedder = ReduxImageEncoder(torch_device)
+
+    # Download and initialize the Redux adapter
+    redux_path = str(
+        get_checkpoint_path("black-forest-labs/FLUX.1-Redux-dev", "flux1-redux-dev.safetensors", "FLUX_REDUX")
+    )
+    img_embedder = ReduxImageEncoder(torch_device, redux_path=redux_path)
 
     rng = torch.Generator(device="cpu")
     prompt = ""
@@ -261,7 +274,9 @@ def main(
         t1 = time.perf_counter()
         print(f"Done in {t1 - t0:.1f}s")
 
-        idx = save_image(nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt)
+        idx = save_image(
+            nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt, track_usage=track_usage
+        )
 
         if loop:
             print("-" * 80)
@@ -271,9 +286,5 @@ def main(
             opts = None
 
 
-def app():
-    Fire(main)
-
-
 if __name__ == "__main__":
-    app()
+    Fire(main)

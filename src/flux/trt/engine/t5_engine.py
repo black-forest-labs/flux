@@ -18,54 +18,34 @@ import torch
 from transformers import T5Tokenizer
 
 from flux.trt.engine import Engine
-from flux.trt.mixin import T5Mixin
+from flux.trt.trt_config import T5Config
 
 
-class T5Engine(T5Mixin, Engine):
-    def __init__(
-        self,
-        text_maxlen: int,
-        hidden_size: int,
-        engine_path: str,
-    ):
-        super().__init__(
-            text_maxlen=text_maxlen,
-            hidden_size=hidden_size,
-            engine_path=engine_path,
-        )
+class T5Engine(Engine):
+    def __init__(self, trt_config: T5Config, stream: torch.cuda.Stream, **kwargs):
+        super().__init__(trt_config=trt_config, stream=stream, **kwargs)
         self.tokenizer = T5Tokenizer.from_pretrained(
             "google/t5-v1_1-xxl",
-            max_length=self.text_maxlen,
+            max_length=self.trt_config.text_maxlen,
         )
 
+    @torch.inference_mode()
     def __call__(
         self,
         prompt: list[str],
     ) -> torch.Tensor:
-        shape_dict = self.get_shape_dict(batch_size=len(prompt))
-        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
-
         with torch.inference_mode():
             feed_dict = self.tokenizer(
                 prompt,
                 truncation=True,
-                max_length=self.text_maxlen,
+                max_length=self.trt_config.text_maxlen,
                 return_length=False,
                 return_overflowing_tokens=False,
                 padding="max_length",
                 return_tensors="pt",
             )
-            feed_dict = {"input_ids": feed_dict["input_ids"].to(torch.int32)}
+            feed_dict = {"input_ids": feed_dict["input_ids"].to(dtype=self.get_dtype("input_ids"))}
 
-            text_embeddings = self.infer(feed_dict)["text_embeddings"].clone()
+            text_embeddings = self.infer(feed_dict)["text_embeddings"]
 
         return text_embeddings
-
-    def get_shape_dict(
-        self,
-        batch_size: int,
-    ) -> dict[str, tuple]:
-        return {
-            "input_ids": (batch_size, self.text_maxlen),
-            "text_embeddings": (batch_size, self.text_maxlen, self.hidden_size),
-        }

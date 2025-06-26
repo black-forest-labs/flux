@@ -11,7 +11,15 @@ from transformers import pipeline
 
 from flux.cli import SamplingOptions
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
+from flux.util import (
+    configs,
+    embed_watermark,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+    track_usage_via_api,
+)
 
 NSFW_THRESHOLD = 0.85
 
@@ -26,7 +34,7 @@ def get_models(name: str, device: torch.device, offload: bool, is_schnell: bool)
 
 
 class FluxGenerator:
-    def __init__(self, model_name: str, device: str, offload: bool):
+    def __init__(self, model_name: str, device: str, offload: bool, track_usage: bool):
         self.device = torch.device(device)
         self.offload = offload
         self.model_name = model_name
@@ -37,6 +45,7 @@ class FluxGenerator:
             offload=self.offload,
             is_schnell=self.is_schnell,
         )
+        self.track_usage = track_usage
 
     @torch.inference_mode()
     def generate_image(
@@ -155,15 +164,21 @@ class FluxGenerator:
                 exif_data[ExifTags.Base.ImageDescription] = prompt
             img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
 
+            if self.track_usage:
+                track_usage_via_api(self.model_name, 1)
+
             return img, str(opts.seed), filename, None
         else:
             return None, str(opts.seed), None, "Your generated image may contain NSFW content."
 
 
 def create_demo(
-    model_name: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", offload: bool = False
+    model_name: str,
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    offload: bool = False,
+    track_usage: bool = False,
 ):
-    generator = FluxGenerator(model_name, device, offload)
+    generator = FluxGenerator(model_name, device, offload, track_usage)
     is_schnell = model_name == "flux-schnell"
 
     with gr.Blocks() as demo:
@@ -240,7 +255,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
+    parser.add_argument("--track_usage", action="store_true", help="Track usage for licensing purposes")
     args = parser.parse_args()
 
-    demo = create_demo(args.name, args.device, args.offload)
+    demo = create_demo(args.name, args.device, args.offload, args.track_usage)
     demo.launch(share=args.share)

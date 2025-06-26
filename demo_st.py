@@ -22,6 +22,7 @@ from flux.util import (
     load_clip,
     load_flow_model,
     load_t5,
+    track_usage_via_api,
 )
 
 NSFW_THRESHOLD = 0.85
@@ -58,6 +59,7 @@ def main(
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
     offload: bool = False,
     output_dir: str = "output",
+    track_usage: bool = False,
 ):
     torch_device = torch.device(device)
     names = list(configs.keys())
@@ -89,7 +91,7 @@ def main(
         image2image_strength = st.number_input("Noising strength", min_value=0.0, max_value=1.0, value=0.8)
         if init_image is not None:
             h, w = init_image.shape[-2:]
-            st.write(f"Got image of size {w}x{h} ({h*w/1e6:.2f}MP)")
+            st.write(f"Got image of size {w}x{h} ({h * w / 1e6:.2f}MP)")
         resize_img = st.checkbox("Resize image", False) or init_image is None
     else:
         init_image = None
@@ -261,6 +263,8 @@ def main(
                 with open(fn, "wb") as file:
                     file.write(img_bytes)
                 idx += 1
+            if track_usage:
+                track_usage_via_api(name, 1)
 
             st.session_state["samples"] = {
                 "prompt": opts.prompt,

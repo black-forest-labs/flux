@@ -9,22 +9,24 @@ requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
 dynamic = ["version"]
 dependencies = [
+  "accelerate",
   "einops",
   "fire >= 0.6.0",
   "huggingface-hub",
   "safetensors",
   "sentencepiece",
-  "transformers",
+  "transformers >= 4.45.2",
   "tokenizers",
   "protobuf",
   "requests",
   "invisible-watermark",
   "ruff == 0.6.8",
+  "accelerate",
 ]
 
 [project.optional-dependencies]
 torch = [
-  "torch == 2.5.1",
+  "torch == 2.6.0",
   "torchvision",
 ]
 streamlit = [
@@ -36,16 +38,14 @@ gradio = [
   "gradio",
 ]
 tensorrt = [
-  "tensorrt-cu12 == 10.8.0.43",
+  "tensorrt-cu12 == 10.12.0.36",
   "colored",
-  "cuda-python",
-  "diffusers",
-  "nvidia-modelopt[torch,onnx] ~= 0.19.0",
-  "opencv-python ~= 4.8.0.74",
-  "onnx ~= 1.17.0",
-  "onnxruntime ~= 1.19.2", 
+  "opencv-python-headless==4.8.0.74",
+  "onnx >=1.18.0",
+  "onnxruntime ~= 1.22.0",
+  "onnxruntime-gpu ~= 1.22.0",
   "onnx-graphsurgeon",
-  "polygraphy ~= 0.49.9",
+  "polygraphy >= 0.49.22",
 ]
 all = [
   "flux[gradio]",

@@ -184,6 +184,7 @@ def main(
     add_sampling_metadata: bool = True,
     img_cond_path: str = "assets/cup.png",
     img_mask_path: str = "assets/cup_mask.png",
+    track_usage: bool = False,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -201,7 +202,8 @@ def main(
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
         img_cond_path: path to conditioning image (jpeg/png/webp)
-        img_mask_path: path to conditioning mask (jpeg/png/webp
+        img_mask_path: path to conditioning mask (jpeg/png/webp)
+        track_usage: track usage of the model for licensing purposes
     """
     nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
 
@@ -309,7 +311,9 @@ def main(
         t1 = time.perf_counter()
         print(f"Done in {t1 - t0:.1f}s")
 
-        idx = save_image(nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt)
+        idx = save_image(
+            nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt, track_usage=track_usage
+        )
 
         if loop:
             print("-" * 80)
@@ -326,9 +330,5 @@ def main(
             opts = None
 
 
-def app():
-    Fire(main)
-
-
 if __name__ == "__main__":
-    app()
+    Fire(main)

@@ -280,7 +280,7 @@ class DiagonalGaussian(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, params: AutoEncoderParams):
+    def __init__(self, params: AutoEncoderParams, sample_z: bool = False):
         super().__init__()
         self.params = params
         self.encoder = Encoder(
@@ -300,7 +300,7 @@ class AutoEncoder(nn.Module):
             num_res_blocks=params.num_res_blocks,
             z_channels=params.z_channels,
         )
-        self.reg = DiagonalGaussian()
+        self.reg = DiagonalGaussian(sample=sample_z)
 
         self.scale_factor = params.scale_factor
         self.shift_factor = params.shift_factor

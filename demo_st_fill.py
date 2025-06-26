@@ -9,13 +9,21 @@ import numpy as np
 import streamlit as st
 import torch
 from einops import rearrange
+from fire import Fire
 from PIL import ExifTags, Image
 from st_keyup import st_keyup
 from streamlit_drawable_canvas import st_canvas
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare_fill, unpack
-from flux.util import embed_watermark, load_ae, load_clip, load_flow_model, load_t5
+from flux.util import (
+    embed_watermark,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+    track_usage_via_api,
+)
 
 NSFW_THRESHOLD = 0.85
 
@@ -141,6 +149,7 @@ def main(
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
     offload: bool = False,
     output_dir: str = "output",
+    track_usage: bool = False,
 ):
     torch_device = torch.device(device)
     st.title("Flux Fill: Inpainting & Outpainting")
@@ -434,6 +443,9 @@ def main(
                         with open(fn, "wb") as file:
                             file.write(img_bytes)
 
+                    if track_usage:
+                        track_usage_via_api(name, 1)
+
                     st.session_state["samples"] = {
                         "prompt": prompt,
                         "img": img,
@@ -482,6 +494,10 @@ def main(
         st.write(f"Seed: {samples['seed']}")
 
 
+def app():
+    Fire(main)
+
+
 if __name__ == "__main__":
     st.set_page_config(layout="wide")
-    main()
+    app()

@@ -17,10 +17,10 @@
 import torch
 
 from flux.trt.engine import Engine
-from flux.trt.mixin import TransformerMixin
+from flux.trt.trt_config import TransformerConfig
 
 
-class TransformerEngine(TransformerMixin, Engine):
+class TransformerEngine(Engine):
     __dd_to_flux__ = {
         "hidden_states": "img",
         "img_ids": "img_ids",
@@ -43,27 +43,8 @@ class TransformerEngine(TransformerMixin, Engine):
         "latent": "latent",
     }
 
-    def __init__(
-        self,
-        guidance_embed: bool,
-        vec_in_dim: int,
-        context_in_dim: int,
-        in_channels: int,
-        out_channels: int,
-        compression_factor: int,
-        text_maxlen: int,
-        engine_path: str,
-    ):
-        super().__init__(
-            guidance_embed=guidance_embed,
-            vec_in_dim=vec_in_dim,
-            context_in_dim=context_in_dim,
-            in_channels=in_channels,
-            out_channels=out_channels,
-            compression_factor=compression_factor,
-            text_maxlen=text_maxlen,
-            engine_path=engine_path,
-        )
+    def __init__(self, trt_config: TransformerConfig, stream: torch.cuda.Stream, **kwargs):
+        super().__init__(trt_config=trt_config, stream=stream, **kwargs)
 
     @property
     def dd_to_flux(self):
@@ -73,48 +54,27 @@ class TransformerEngine(TransformerMixin, Engine):
     def flux_to_dd(self):
         return TransformerEngine.__flux_to_dd__
 
+    @torch.inference_mode()
     def __call__(
         self,
         **kwargs,
     ) -> torch.Tensor:
-        img = kwargs["img"]
-        shape_dict = self.get_shape_dict(
-            batch_size=img.size(0),
-            hidden_size=img.size(1),
-        )
-        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
+        feed_dict = {}
 
-        with torch.inference_mode():
-            feed_dict = {
-                tensor_name: kwargs[self.dd_to_flux[tensor_name]].to(dtype=tensor_value.dtype)
-                for tensor_name, tensor_value in self.tensors.items()
-                if tensor_name != "latent"
-            }
+        if self.trt_config.model_name == "flux-schnell":
+            # remove guidance
+            kwargs.pop("guidance")
 
-            # remove batch dim to match demo-diffusion
-            feed_dict["img_ids"] = feed_dict["img_ids"][0]
-            feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
+        for tensor_name, tensor_value in kwargs.items():
+            if tensor_name == "latent":
+                continue
+            dd_name = self.flux_to_dd[tensor_name]
+            feed_dict[dd_name] = tensor_value.to(dtype=self.get_dtype(dd_name))
 
-            latent = self.infer(feed_dict=feed_dict)["latent"].clone()
+        # remove batch dim to match demo-diffusion
+        feed_dict["img_ids"] = feed_dict["img_ids"][0]
+        feed_dict["txt_ids"] = feed_dict["txt_ids"][0]
+
+        latent = self.infer(feed_dict=feed_dict)["latent"]
 
         return latent
-
-    def get_shape_dict(
-        self,
-        batch_size: int,
-        hidden_size: int,
-    ) -> dict[str, tuple]:
-        shape_dict = {
-            "hidden_states": (batch_size, hidden_size, self.in_channels),
-            "encoder_hidden_states": (batch_size, self.text_maxlen, self.context_in_dim),
-            "pooled_projections": (batch_size, self.vec_in_dim),
-            "timestep": (batch_size,),
-            "img_ids": (hidden_size, 3),
-            "txt_ids": (self.text_maxlen, 3),
-            "latent": (batch_size, hidden_size, self.out_channels),
-        }
-
-        if self.guidance_embed:
-            shape_dict["guidance"] = (batch_size,)
-
-        return shape_dict

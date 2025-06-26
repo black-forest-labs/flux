@@ -5,13 +5,19 @@ from dataclasses import dataclass
 from glob import iglob
 
 import torch
-from cuda import cudart
 from fire import Fire
 from transformers import pipeline
 
 from flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from flux.trt.trt_manager import TRTManager
-from flux.util import configs, load_ae, load_clip, load_flow_model, load_t5, save_image
+from flux.util import (
+    check_onnx_access_for_trt,
+    configs,
+    load_ae,
+    load_clip,
+    load_flow_model,
+    load_t5,
+    save_image,
+)
 
 NSFW_THRESHOLD = 0.85
 
@@ -48,7 +54,7 @@ def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
             options.width = 16 * (int(width) // 16)
             print(
                 f"Setting resolution to {options.width} x {options.height} "
-                f"({options.height *options.width/1e6:.2f}MP)"
+                f"({options.height * options.width / 1e6:.2f}MP)"
             )
         elif prompt.startswith("/h"):
             if prompt.count(" ") != 1:
@@ -58,7 +64,7 @@ def parse_prompt(options: SamplingOptions) -> SamplingOptions | None:
             options.height = 16 * (int(height) // 16)
             print(
                 f"Setting resolution to {options.width} x {options.height} "
-                f"({options.height *options.width/1e6:.2f}MP)"
+                f"({options.height * options.width / 1e6:.2f}MP)"
             )
         elif prompt.startswith("/g"):
             if prompt.count(" ") != 1:
@@ -106,13 +112,13 @@ def main(
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
     num_steps: int | None = None,
     loop: bool = False,
-    guidance: float = 3.5,
+    guidance: float = 2.5,
     offload: bool = False,
     output_dir: str = "output",
     add_sampling_metadata: bool = True,
     trt: bool = False,
     trt_transformer_precision: str = "bf16",
-    **kwargs: dict | None,
+    track_usage: bool = False,
 ):
     """
     Sample the flux model. Either interactively (set `--loop`) or run for a
@@ -132,7 +138,8 @@ def main(
         guidance: guidance value used for guidance distillation
         add_sampling_metadata: Add the prompt to the image Exif metadata
         trt: use TensorRT backend for optimized inference
-        kwargs: additional arguments for TensorRT support
+        trt_transformer_precision: specify transformer precision for inference
+        track_usage: track usage of the model for licensing purposes
     """
 
     prompt = prompt.split("|")
@@ -172,63 +179,44 @@ def main(
         else:
             idx = 0
 
-    # init all components
-    t5 = load_t5(torch_device, max_length=256 if name == "flux-schnell" else 512)
-    clip = load_clip(torch_device)
-    model = load_flow_model(name, device="cpu" if offload else torch_device)
-    ae = load_ae(name, device="cpu" if offload else torch_device)
+    if not trt:
+        t5 = load_t5(torch_device, max_length=256 if name == "flux-schnell" else 512)
+        clip = load_clip(torch_device)
+        model = load_flow_model(name, device="cpu" if offload else torch_device)
+        ae = load_ae(name, device="cpu" if offload else torch_device)
+    else:
+        # lazy import to make install optional
+        from flux.trt.trt_manager import ModuleName, TRTManager
 
-    if trt:
-        # offload to CPU to save memory
-        ae = ae.cpu()
-        model = model.cpu()
-        clip = clip.cpu()
-        t5 = t5.cpu()
-
-        torch.cuda.empty_cache()
+        # Check if we need ONNX model access (which requires authentication for FLUX models)
+        onnx_dir = check_onnx_access_for_trt(name, trt_transformer_precision)
 
         trt_ctx_manager = TRTManager(
-            bf16=True,
-            device=torch_device,
-            static_batch=kwargs.get("static_batch", True),
-            static_shape=kwargs.get("static_shape", True),
+            trt_transformer_precision=trt_transformer_precision,
+            trt_t5_precision=os.getenv("TRT_T5_PRECISION", "bf16"),
         )
-        ae.decoder.params = ae.params
         engines = trt_ctx_manager.load_engines(
-            models={
-                "clip": clip,
-                "transformer": model,
-                "t5": t5,
-                "vae": ae.decoder,
+            model_name=name,
+            module_names={
+                ModuleName.CLIP,
+                ModuleName.TRANSFORMER,
+                ModuleName.T5,
+                ModuleName.VAE,
             },
             engine_dir=os.environ.get("TRT_ENGINE_DIR", "./engines"),
-            onnx_dir=os.environ.get("ONNX_DIR", "./onnx"),
-            opt_image_height=height,
-            opt_image_width=width,
-            transformer_precision=trt_transformer_precision,
+            custom_onnx_paths=onnx_dir or os.environ.get("CUSTOM_ONNX_PATHS", ""),
+            trt_image_height=height,
+            trt_image_width=width,
+            trt_batch_size=1,
+            trt_timing_cache=os.getenv("TRT_TIMING_CACHE_FILE", None),
+            trt_static_batch=False,
+            trt_static_shape=False,
         )
 
-        torch.cuda.synchronize()
-
-        trt_ctx_manager.init_runtime()
-        # TODO: refactor. stream should be part of engine constructor maybe !!
-        for _, engine in engines.items():
-            engine.set_stream(stream=trt_ctx_manager.stream)
-
-        if not offload:
-            for _, engine in engines.items():
-                engine.load()
-
-            calculate_max_device_memory = trt_ctx_manager.calculate_max_device_memory(engines)
-            _, shared_device_memory = cudart.cudaMalloc(calculate_max_device_memory)
-
-            for _, engine in engines.items():
-                engine.activate(device=torch_device, device_memory=shared_device_memory)
-
-        ae = engines["vae"]
-        model = engines["transformer"]
-        clip = engines["clip"]
-        t5 = engines["t5"]
+        ae = engines[ModuleName.VAE].to(device="cpu" if offload else torch_device)
+        model = engines[ModuleName.TRANSFORMER].to(device="cpu" if offload else torch_device)
+        clip = engines[ModuleName.CLIP].to(torch_device)
+        t5 = engines[ModuleName.T5].to(device="cpu" if offload else torch_device)
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
@@ -293,7 +281,9 @@ def main(
         fn = output_name.format(idx=idx)
         print(f"Done in {t1 - t0:.1f}s. Saving {fn}")
 
-        idx = save_image(nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt)
+        idx = save_image(
+            nsfw_classifier, name, output_name, idx, x, add_sampling_metadata, prompt, track_usage=track_usage
+        )
 
         if loop:
             print("-" * 80)
@@ -308,9 +298,5 @@ def main(
         trt_ctx_manager.stop_runtime()
 
 
-def app():
-    Fire(main)
-
-
 if __name__ == "__main__":
-    app()
+    Fire(main)

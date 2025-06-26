@@ -15,99 +15,40 @@
 # limitations under the License.
 
 import torch
-from cuda import cudart
 
 from flux.trt.engine.base_engine import BaseEngine, Engine
-from flux.trt.mixin import VAEMixin
+from flux.trt.trt_config import VAEDecoderConfig, VAEEncoderConfig
 
 
-class VAEDecoder(VAEMixin, Engine):
-    def __init__(
-        self,
-        z_channels: int,
-        compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
-        engine_path: str,
-    ):
-        super().__init__(
-            z_channels=z_channels,
-            compression_factor=compression_factor,
-            scale_factor=scale_factor,
-            shift_factor=shift_factor,
-            engine_path=engine_path,
-        )
+class VAEDecoder(Engine):
+    def __init__(self, trt_config: VAEDecoderConfig, stream: torch.cuda.Stream, **kwargs):
+        super().__init__(trt_config=trt_config, stream=stream, **kwargs)
 
+    @torch.inference_mode()
     def __call__(
         self,
         z: torch.Tensor,
     ) -> torch.Tensor:
-        shape_dict = self.get_shape_dict(
-            batch_size=z.size(0),
-            latent_height=z.size(2),
-            latent_width=z.size(3),
-        )
-        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
-
-        z = z.to(dtype=self.tensors["latent"].dtype)
-        z = (z / self.scale_factor) + self.shift_factor
+        z = z.to(dtype=self.get_dtype("latent"))
+        z = (z / self.trt_config.scale_factor) + self.trt_config.shift_factor
         feed_dict = {"latent": z}
-        images = self.infer(feed_dict=feed_dict)["images"].clone()
+        images = self.infer(feed_dict=feed_dict)["images"]
         return images
 
-    def get_shape_dict(self, batch_size: int, latent_height: int, latent_width: int) -> dict[str, tuple]:
-        image_height, image_width = self.get_img_dim(
-            latent_height=latent_height,
-            latent_width=latent_width,
-        )
-        return {
-            "latent": (batch_size, self.z_channels, latent_height, latent_width),
-            "images": (batch_size, 3, image_height, image_width),
-        }
 
+class VAEEncoder(Engine):
+    def __init__(self, trt_config: VAEEncoderConfig, stream: torch.cuda.Stream, **kwargs):
+        super().__init__(trt_config=trt_config, stream=stream, **kwargs)
 
-class VAEEncoder(VAEMixin, Engine):
-    def __init__(
-        self,
-        z_channels: int,
-        compression_factor: int,
-        scale_factor: float,
-        shift_factor: float,
-        engine_path: str,
-    ):
-        super().__init__(
-            z_channels=z_channels,
-            compression_factor=compression_factor,
-            scale_factor=scale_factor,
-            shift_factor=shift_factor,
-            engine_path=engine_path,
-        )
-
+    @torch.inference_mode()
     def __call__(
         self,
         x: torch.Tensor,
     ) -> torch.Tensor:
-        shape_dict = self.get_shape_dict(
-            batch_size=x.size(0),
-            image_height=x.size(2),
-            image_width=x.size(3),
-        )
-        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
-
-        feed_dict = {"images": x}
-        latent = self.infer(feed_dict=feed_dict)["latent"].clone()
-        latent = self.scale_factor * (latent - self.shift_factor)
+        feed_dict = {"images": x.to(dtype=self.get_dtype("images"))}
+        latent = self.infer(feed_dict=feed_dict)["latent"]
+        latent = self.trt_config.scale_factor * (latent - self.trt_config.shift_factor)
         return latent
-
-    def get_shape_dict(self, batch_size: int, image_height: int, image_width: int) -> dict[str, tuple]:
-        latent_height, latent_width = self.get_latent_dim(
-            image_height=image_height,
-            image_width=image_width,
-        )
-        return {
-            "images": (batch_size, 3, image_height, image_width),
-            "latent": (batch_size, self.z_channels, latent_height, latent_width),
-        }
 
 
 class VAEEngine(BaseEngine):
@@ -133,40 +74,21 @@ class VAEEngine(BaseEngine):
             self.encoder = self.encoder.cpu()
         return self
 
-    def get_device_memory(self):
-        if self.encoder:
-            device_memory = max(
-                self.decoder.engine.device_memory_size,
-                self.encoder.engine.device_memory_size,
-            )
-        else:
-            device_memory = self.decoder.engine.device_memory_size
-        return device_memory
-
-    def to(self, device):
-        self.load()
-
-        device_memory = self.get_device_memory()
-        _, self.decoder.shared_device_memory = cudart.cudaMalloc(device_memory)
-
-        self.activate(device=device, device_memory=self.decoder.shared_device_memory)
+    def cuda(self):
+        self.decoder = self.decoder.cuda()
+        if self.encoder is not None:
+            self.encoder = self.encoder.cuda()
         return self
 
-    def set_stream(self, stream):
-        self.decoder.set_stream(stream)
+    def to(self, device):
+        self.decoder = self.decoder.to(device)
         if self.encoder is not None:
-            self.encoder.set_stream(stream)
+            self.encoder = self.encoder.to(device)
+        return self
 
-    def load(self):
-        self.decoder.load()
+    @property
+    def device_memory_size(self):
+        device_memory = self.decoder.device_memory_size
         if self.encoder is not None:
-            self.encoder.load()
-
-    def activate(
-        self,
-        device: str,
-        device_memory: int | None = None,
-    ):
-        self.decoder.activate(device=device, device_memory=device_memory)
-        if self.encoder is not None:
-            self.encoder.activate(device=device, device_memory=device_memory)
+            device_memory = max(device_memory, self.encoder.device_memory_size)
+        return device_memory

@@ -34,4 +34,4 @@ class HFEmbedder(nn.Module):
             attention_mask=None,
             output_hidden_states=False,
         )
-        return outputs[self.output_key]
+        return outputs[self.output_key].bfloat16()

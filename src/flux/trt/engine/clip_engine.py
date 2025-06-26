@@ -18,55 +18,34 @@ import torch
 from transformers import CLIPTokenizer
 
 from flux.trt.engine import Engine
-from flux.trt.mixin import CLIPMixin
+from flux.trt.trt_config import ClipConfig
 
 
-class CLIPEngine(CLIPMixin, Engine):
-    def __init__(
-        self,
-        text_maxlen: int,
-        hidden_size: int,
-        engine_path: str,
-    ):
-        super().__init__(
-            text_maxlen=text_maxlen,
-            hidden_size=hidden_size,
-            engine_path=engine_path,
-        )
+class CLIPEngine(Engine):
+    def __init__(self, trt_config: ClipConfig, stream: torch.cuda.Stream, **kwargs):
+        super().__init__(trt_config=trt_config, stream=stream, **kwargs)
         self.tokenizer = CLIPTokenizer.from_pretrained(
             "openai/clip-vit-large-patch14",
-            max_length=self.text_maxlen,
+            max_length=self.trt_config.text_maxlen,
         )
 
+    @torch.inference_mode()
     def __call__(
         self,
         prompt: list[str],
     ) -> torch.Tensor:
-        shape_dict = self.get_shape_dict(batch_size=len(prompt))
-        self.allocate_buffers(shape_dict=shape_dict, device=self.device)
         with torch.inference_mode():
             feed_dict = self.tokenizer(
                 prompt,
                 truncation=True,
-                max_length=self.text_maxlen,
+                max_length=self.trt_config.text_maxlen,
                 return_length=False,
                 return_overflowing_tokens=False,
                 padding="max_length",
                 return_tensors="pt",
             )
-            feed_dict = {"input_ids": feed_dict["input_ids"].to(torch.int32)}
+            feed_dict = {"input_ids": feed_dict["input_ids"].to(dtype=self.get_dtype("input_ids"))}
 
-            pooled_embeddings = self.infer(feed_dict)["pooled_embeddings"].clone()
+            pooled_embeddings = self.infer(feed_dict)["pooled_embeddings"]
 
         return pooled_embeddings
-
-    def get_shape_dict(
-        self,
-        batch_size: int,
-    ) -> dict[str, tuple]:
-        return {
-            "input_ids": (batch_size, self.text_maxlen),
-            "pooled_embeddings": (batch_size, self.hidden_size),
-            # Onnx model coming from HF has also this input
-            "text_embeddings": (batch_size, self.text_maxlen, self.hidden_size),
-        }
