@@ -1,0 +1,5 @@
+runpod
+torch
+transformers
+diffusers
+# Добавь другие зависимости, если они используются в твоём коде
