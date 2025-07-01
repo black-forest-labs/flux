@@ -32,7 +32,7 @@ python -m flux kontext \
   --num_steps 30 --aspect_ratio "16:9" --guidance 2.5 --seed 1
 ```
 Note that the flags `num_steps`, `aspect_ratio`, `guidance` and `seed` are
-optional. For more available flags see [the code](src/flux/cli_kontext.py).
+optional. For more available flags see [the code](../src/flux/cli_kontext.py).
 
 ### TRT engine infernece
 
