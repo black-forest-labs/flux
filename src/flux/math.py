@@ -3,13 +3,27 @@ from einops import rearrange
 from torch import Tensor
 
 
-def attention(q: Tensor, k: Tensor, v: Tensor, pe: Tensor) -> Tensor:
+def attention(q: Tensor, k: Tensor, v: Tensor, pe: Tensor, guidance_weight: float) -> Tensor:
+    """
+        Hybrid PAG+NAG attention: NAG-style feature processing with PAG's identity matrix for negative guidance.
+    """
+    print('new self attention !')
     q, k = apply_rope(q, k, pe)
 
-    x = torch.nn.functional.scaled_dot_product_attention(q, k, v)
-    x = rearrange(x, "B H L D -> B L (H D)")
+    x_pos = torch.nn.functional.scaled_dot_product_attention(q, k, v)
 
-    return x
+    B, H, L, D = q.shape
+
+    identity_attn = torch.eye(L, device=q.device, dtype=q.dtype).unsqueeze(0).unsqueeze(0).expand(B, H, -1, -1)
+    x_neg = torch.einsum('bhij,bhjd->bhid', identity_attn, v)
+
+    x_combined = x_pos + guidance_weight * (x_pos - x_neg)
+
+    x_normalized = torch.nn.functional.normalize(x_combined, dim=-1)
+    
+    x_normalized = rearrange(x_normalized, "B H L D -> B L (H D)")
+
+    return x_normalized
 
 
 def rope(pos: Tensor, dim: int, theta: int) -> Tensor:
