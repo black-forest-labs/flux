@@ -4,7 +4,7 @@ We currently offer two open-weight text-to-image models.
 
 | Name                      | HuggingFace repo                                                | License                                                               | sha256sum                                                        |
 | ------------------------- | ----------------------------------------------------------------| --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `FLUX.1 Kontext [dev]`    | https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev     | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) | 843a26dc765d3105dba081c30bce7b14c65b0988f9e8d14e9fbc8856a6deebd5 |
+| `FLUX.1 Kontext [dev]`    | https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev     | [FLUX.1-dev Non-Commercial License](../model_licenses/LICENSE-FLUX1-dev) | 843a26dc765d3105dba081c30bce7b14c65b0988f9e8d14e9fbc8856a6deebd5 |
 
 ## Examples
 

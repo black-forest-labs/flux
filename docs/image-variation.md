@@ -4,7 +4,7 @@ FLUX.1 Redux is an adapter for the FLUX.1 text-to-image base models, FLUX.1 [dev
 
 | Name                        | HuggingFace repo                                            | License                                                               | sha256sum                                                        |
 | --------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `FLUX.1 Redux [dev]`        | https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev   | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) | a1b3bdcb4bdc58ce04874b9ca776d61fc3e914bb6beab41efb63e4e2694dca45 |
+| `FLUX.1 Redux [dev]`        | https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev   | [FLUX.1-dev Non-Commercial License](../model_licenses/LICENSE-FLUX1-dev) | a1b3bdcb4bdc58ce04874b9ca776d61fc3e914bb6beab41efb63e4e2694dca45 |
 
 
 ## Examples

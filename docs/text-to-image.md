@@ -2,10 +2,11 @@
 
 We currently offer two open-weight text-to-image models.
 
-| Name                      | HuggingFace repo                                        | License                                                               | sha256sum                                                        |
-| ------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `FLUX.1 [schnell]`        | https://huggingface.co/black-forest-labs/FLUX.1-schnell | [apache-2.0](model_licenses/LICENSE-FLUX1-schnell)                    | 9403429e0052277ac2a87ad800adece5481eecefd9ed334e1f348723621d2a0a |
-| `FLUX.1 [dev]`            | https://huggingface.co/black-forest-labs/FLUX.1-dev     | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) | 4610115bb0c89560703c892c59ac2742fa821e60ef5871b33493ba544683abd7 |
+| Name                      | HuggingFace repo                                         | License                                                                  | sha256sum                                                        |
+| --------------------------|----------------------------------------------------------| -------------------------------------------------------------------------|----------------------------------------------------------------- |
+| `FLUX.1 [schnell]`        | https://huggingface.co/black-forest-labs/FLUX.1-schnell  | [apache-2.0](../model_licenses/LICENSE-FLUX1-schnell)                    | 9403429e0052277ac2a87ad800adece5481eecefd9ed334e1f348723621d2a0a |
+| `FLUX.1 [dev]`            | https://huggingface.co/black-forest-labs/FLUX.1-dev      | [FLUX.1-dev Non-Commercial License](../model_licenses/LICENSE-FLUX1-dev) | 4610115bb0c89560703c892c59ac2742fa821e60ef5871b33493ba544683abd7 |
+| `FLUX.1 Krea [dev]`       | https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev | [FLUX.1-dev Non-Commercial License](../model_licenses/LICENSE-FLUX1-dev) | 4610115bb0c89560703c892c59ac2742fa821e60ef5871b33493ba544683abd7 |
 
 ## Open-weights usage
 

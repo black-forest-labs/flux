@@ -45,6 +45,7 @@ We are offering an extensive suite of open-weight models. For more information a
 | `FLUX.1 Depth [dev] LoRA`   | [Structural Conditioning](docs/structural-conditioning.md) | https://huggingface.co/black-forest-labs/FLUX.1-Depth-dev-lora | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
 | `FLUX.1 Redux [dev]`        | [Image variation](docs/image-variation.md)                 | https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev      | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
 | `FLUX.1 Kontext [dev]`      | [Image editing](docs/image-editing.md)                     | https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev    | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
+| `FLUX.1 Krea [dev]`         | [Text to Image](docs/text-to-image.md)                     | https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev       | [FLUX.1-dev Non-Commercial License](model_licenses/LICENSE-FLUX1-dev) |
 
 The weights of the autoencoder are also released under [apache-2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) and can be found in the HuggingFace repos above.
 
