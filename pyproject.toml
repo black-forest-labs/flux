@@ -48,6 +48,7 @@ tensorrt = [
   "polygraphy >= 0.49.22",
 ]
 all = [
+  "flux[tensorrt]",
   "flux[gradio]",
   "flux[streamlit]",
   "flux[torch]",
