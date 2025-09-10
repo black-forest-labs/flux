@@ -41,4 +41,4 @@ We provide exports in BF16, FP8, and FP4 precision. Note that you need to instal
 ```bash
 python -m flux kontext --loop --trt --trt_transformer_precision <precision>
 ```
-where `<trt_transformer_precision>` is either `bf16`, `fp8`, or `fp4_sdvd32`.
+where `<trt_transformer_precision>` is either `bf16`, `fp8`, or `fp4_svd32`.
