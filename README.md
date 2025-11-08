@@ -7,6 +7,12 @@ Documentation for our API can be found here: [docs.bfl.ai](https://docs.bfl.ai/)
 
 This repo contains minimal inference code to run image generation & editing with our Flux open-weight models.
 
+## Table of Contents
+- [Local Installation](#local-installation)
+- [API Usage](#api-usage)
+- [Commercial Licensing](#licensing-models-for-commercial-use)
+- [Citation](#citation)
+
 ## Local installation
 
 ```bash
