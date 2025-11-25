@@ -11,3 +11,21 @@ from pathlib import Path
 
 PACKAGE = __package__.replace("_", "-")
 PACKAGE_ROOT = Path(__file__).parent
+
+# SAM3 + FLUX Inpainting exports
+from .sam3_segmenter import SAM3Segmenter
+from .inpainting import Flux2Inpainter, create_inpainter
+from .sam_flux_pipeline import SAMFluxPipeline, InpaintResult, create_pipeline
+
+__all__ = [
+    "__version__",
+    "version_tuple",
+    "PACKAGE",
+    "PACKAGE_ROOT",
+    "SAM3Segmenter",
+    "Flux2Inpainter",
+    "create_inpainter",
+    "SAMFluxPipeline",
+    "InpaintResult",
+    "create_pipeline",
+]

@@ -10,6 +10,7 @@ license = { file = "LICENSE.md" }
 dynamic = ["version"]
 dependencies = [
   "accelerate",
+  "diffusers",
   "einops",
   "fire >= 0.6.0",
   "huggingface-hub",
@@ -21,7 +22,6 @@ dependencies = [
   "requests",
   "invisible-watermark",
   "ruff == 0.6.8",
-  "accelerate",
 ]
 
 [project.optional-dependencies]
@@ -47,14 +47,20 @@ tensorrt = [
   "onnx-graphsurgeon",
   "polygraphy >= 0.49.22",
 ]
+inpainting = [
+  "gradio",
+  "scipy",
+]
 all = [
   "flux[gradio]",
   "flux[streamlit]",
   "flux[torch]",
+  "flux[inpainting]",
 ]
 
 [project.scripts]
 flux = "flux.cli:app"
+flux-inpaint = "flux.cli_inpaint:main"
 
 [build-system]
 build-backend = "setuptools.build_meta"
