@@ -31,7 +31,7 @@ class HFEmbedder(nn.Module):
 
         outputs = self.hf_module(
             input_ids=batch_encoding["input_ids"].to(self.hf_module.device),
-            attention_mask=None,
+            attention_mask=batch_encoding["attention_mask"].to(self.hf_module.device),
             output_hidden_states=False,
         )
         return outputs[self.output_key].bfloat16()
