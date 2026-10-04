@@ -80,7 +80,7 @@ class FluxGenerator:
 
         if init_image is not None:
             if isinstance(init_image, np.ndarray):
-                init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 255.0
+                init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1.0
                 init_image = init_image.unsqueeze(0)
             init_image = init_image.to(self.device)
             init_image = torch.nn.functional.interpolate(init_image, (opts.height, opts.width))
