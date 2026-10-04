@@ -16,8 +16,8 @@ from flux.model import Flux, FluxLoraWrapper, FluxParams
 from flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
 from flux.modules.conditioner import HFEmbedder
 
-CHECKPOINTS_DIR = Path("checkpoints")
-CHECKPOINTS_DIR.mkdir(exist_ok=True)
+CHECKPOINTS_DIR = Path(os.getenv("CHECKPOINT_DIR") or "checkpoints").expanduser()
+CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
 BFL_API_KEY = os.getenv("BFL_API_KEY")
 
 os.environ.setdefault("TRT_ENGINE_DIR", str(CHECKPOINTS_DIR / "trt_engines"))

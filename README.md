@@ -17,6 +17,16 @@ source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
+Downloaded checkpoints are stored in `checkpoints/` relative to the current working directory by default.
+To use another directory, set `CHECKPOINT_DIR` before running FLUX:
+
+```bash
+export CHECKPOINT_DIR=/path/to/checkpoints
+```
+
+The directory is created automatically, including missing parent directories. TensorRT engines default to
+`$CHECKPOINT_DIR/trt_engines`; set `TRT_ENGINE_DIR` to override their location independently.
+
 ### Local installation with TensorRT support
 
 If you would like to install the repository with [TensorRT](https://github.com/NVIDIA/TensorRT) support, you currently need to install a PyTorch image from NVIDIA instead. First install [enroot](https://github.com/NVIDIA/enroot), next follow the steps below:
