@@ -84,13 +84,11 @@ def parse_img_cond_path(options: SamplingOptions | None) -> SamplingOptions | No
     while True:
         img_cond_path = input(user_question)
 
-        if img_cond_path.startswith("/"):
-            if img_cond_path.startswith("/q"):
+        if img_cond_path in ("/h", "/q"):
+            if img_cond_path == "/q":
                 print("Quitting")
                 return None
             else:
-                if not img_cond_path.startswith("/h"):
-                    print(f"Got invalid command '{img_cond_path}'\n{usage}")
                 print(usage)
             continue
 
@@ -130,13 +128,11 @@ def parse_img_mask_path(options: SamplingOptions | None) -> SamplingOptions | No
     while True:
         img_mask_path = input(user_question)
 
-        if img_mask_path.startswith("/"):
-            if img_mask_path.startswith("/q"):
+        if img_mask_path in ("/h", "/q"):
+            if img_mask_path == "/q":
                 print("Quitting")
                 return None
             else:
-                if not img_mask_path.startswith("/h"):
-                    print(f"Got invalid command '{img_mask_path}'\n{usage}")
                 print(usage)
             continue
 
